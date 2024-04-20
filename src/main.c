@@ -19,9 +19,14 @@ typedef struct Entity {
 	Texture UV_texture;
 } Entity;
 
+typedef struct EngineSettings {
+	bool render_uv;
+} EngineSettings;
+
 typedef struct Engine {
 	RenderTexture render_target;
 	Shader uv_shader;
+	EngineSettings settings;
 } Engine;
 
 typedef struct GameData {
@@ -55,10 +60,19 @@ void draw_entity(Entity* entity, Shader uv_shader)
 // UV mapping, paralax rendering etc.
 void engine_draw_first_pass(Engine* engine, GameData* data)
 {
-	BeginShaderMode(engine->uv_shader);
-	draw_entity(&data->player, engine->uv_shader);
-	EndShaderMode();
+	// do uv mapping
+	if (engine->settings.render_uv)
+	{
+		BeginShaderMode(engine->uv_shader);
+		draw_entity(&data->player, engine->uv_shader);
+		EndShaderMode();
+	}
 
+	// skip uv mapping (for debugging purposes)
+	else
+	{
+		draw_entity(&data->player, engine->uv_shader);
+	}
 }
 
 // rendering render-display onto the window, scaling it up to correct size
@@ -124,6 +138,7 @@ int main(void)
         if (IsKeyDown(KEY_A)) data.player.position.x -= 2.0f;
         if (IsKeyDown(KEY_W)) data.player.position.y -= 2.0f;
         if (IsKeyDown(KEY_S)) data.player.position.y += 2.0f;
+        if (IsKeyPressed(KEY_Q)) engine.settings.render_uv = !engine.settings.render_uv;
 
 		engine_draw(&engine, &data);
 
