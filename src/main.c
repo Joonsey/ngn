@@ -10,23 +10,34 @@
 #define screen_width 800
 #define screen_height 450
 
+#define render_width 240
+#define render_height 120
+
 typedef struct Entity {
 	Vector2 position;
-	Texture2D texture;
+	Texture2D texture; //TODO(J): can be a pointer so it's easier to change during runtime
 	Texture UV_texture;
 } Entity;
 
-Entity make_player(Image image, Texture UV_texture)
+typedef struct Engine {
+	RenderTexture render_target;
+	Shader uv_shader;
+} Engine;
+
+typedef struct GameData {
+	Entity player;
+} GameData;
+
+
+Entity make_player(Texture player_texture, Texture UV_texture)
 {
-	Vector2 pos = {(float)screen_width / 2, (float)screen_height / 2};
-	Texture2D tex = LoadTextureFromImage(image);
+	Vector2 pos = {(float)render_width / 2, (float)render_height / 2};
+
 	Entity player;
 
 	player.position = pos;
-	player.texture = tex;
+	player.texture = player_texture;
 	player.UV_texture = UV_texture;
-
-    UnloadImage(image);
 
 	return player;
 }
@@ -40,47 +51,86 @@ void draw_entity(Entity* entity, Shader uv_shader)
 	DrawTextureV(entity->texture, entity->position, WHITE);
 }
 
+// pre-processing render
+// UV mapping, paralax rendering etc.
+void engine_draw_first_pass(Engine* engine, GameData* data)
+{
+	BeginShaderMode(engine->uv_shader);
+	draw_entity(&data->player, engine->uv_shader);
+	EndShaderMode();
+
+}
+
+// rendering render-display onto the window, scaling it up to correct size
+// this is where UI, post processing etc. should be
+void engine_draw_last_pass(Engine* engine, GameData* data)
+{
+
+	BeginDrawing();
+
+	DrawTexturePro(engine->render_target.texture,
+			(Rectangle){ 0.0f, 0.0f, (float)engine->render_target.texture.width, (float)-engine->render_target.texture.height },
+			(Rectangle){ 0.0f, 0.0f, (float)screen_width, (float)screen_height },
+			(Vector2){ 0, 0 },
+			0.0f,
+			WHITE);
+
+
+
+	DrawText("BACKGROUND is PAINTED and ANIMATED on SHADER!", 10, 10, 20, MAROON);
+
+	EndDrawing();
+}
+
+void engine_draw(Engine* engine, GameData* data)
+{
+	// start drawing on the palette
+	BeginTextureMode(engine->render_target);
+	// clearing palette
+	ClearBackground(RAYWHITE);
+
+	// pre-processing
+	// (i.e) uv mapping
+	engine_draw_first_pass(engine, data);
+	EndTextureMode();
+
+	engine_draw_last_pass(engine, data);
+
+}
+
 int main(void)
 {
     // Initialization
     InitWindow(screen_width, screen_height, "ngn");
+	Engine engine;
+	GameData data;
+	engine.render_target = LoadRenderTexture(render_width, render_height);
 
     // Create a player entity with a colored image
-	Color color = {3, 1, 0, 255};
-	Entity player = make_player(
-			GenImageColor(32, 32, color),
+	data.player = make_player(
+			LoadTexture("resources/textures/cube.png"),
 			LoadTexture("resources/textures/palette-1x.png")
 			);
 
     // Load the shader
-    Shader uv_shader = LoadShader(0, TextFormat("resources/shaders/glsl%i/cubes_panning.fs", GLSL_VERSION));
+    engine.uv_shader = LoadShader(0, TextFormat("resources/shaders/glsl%i/uv.fs", GLSL_VERSION));
 
     SetTargetFPS(60);
 
     while (!WindowShouldClose())
     {
         // Player movement
-        if (IsKeyDown(KEY_D)) player.position.x += 2.0f;
-        if (IsKeyDown(KEY_A)) player.position.x -= 2.0f;
-        if (IsKeyDown(KEY_W)) player.position.y -= 2.0f;
-        if (IsKeyDown(KEY_S)) player.position.y += 2.0f;
+        if (IsKeyDown(KEY_D)) data.player.position.x += 2.0f;
+        if (IsKeyDown(KEY_A)) data.player.position.x -= 2.0f;
+        if (IsKeyDown(KEY_W)) data.player.position.y -= 2.0f;
+        if (IsKeyDown(KEY_S)) data.player.position.y += 2.0f;
 
-        // Draw
-        BeginDrawing();
+		engine_draw(&engine, &data);
 
-        ClearBackground(RAYWHITE);
-
-        BeginShaderMode(uv_shader);
-        draw_entity(&player, uv_shader);
-        EndShaderMode();
-
-        DrawText("BACKGROUND is PAINTED and ANIMATED on SHADER!", 10, 10, 20, MAROON);
-
-        EndDrawing();
     }
 
     // De-Initialization
-    UnloadShader(uv_shader);
+    UnloadShader(engine.uv_shader);
     CloseWindow();
 
     return 0;
