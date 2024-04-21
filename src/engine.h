@@ -8,7 +8,6 @@
 #endif
 
 #include <stdio.h>
-#include <dlfcn.h>
 
 #define screen_width 800
 #define screen_height 450
