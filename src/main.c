@@ -71,6 +71,8 @@ int main(void)
 
     // De-Initialization
     UnloadShader(engine.uv_shader);
+
+	engine_exit(&engine, &data);
     CloseWindow();
 
     return 0;

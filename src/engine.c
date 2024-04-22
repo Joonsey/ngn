@@ -1,5 +1,16 @@
 #include "engine.h"
 
+int get_total_num_rooms(GameData* data)
+{
+	// this will deprecate if we decide to heap allocate the rooms
+	int r, i;
+	r = 0;
+	for (i = 0; i < MAX_ROOMS; i++)
+		if (data->rooms[i] != NULL)
+			r ++;
+	return r;
+}
+
 Entity make_player(Texture player_texture, Texture UV_texture)
 {
 	Vector2 pos = {(float)render_width / 2, (float)render_height / 2};
@@ -28,6 +39,12 @@ void engine_init(Engine* engine, GameData* data)
 	engine->render_target = LoadRenderTexture(render_width, render_height);
 
 	player_init(engine, data);
+
+	// make sample rooms
+	// these should be loaded by some file or generation
+	data->rooms[0] = create_room(1, (Vector4) { 0, 0, 16, 16 });
+	data->rooms[1] = create_room(2, (Vector4) { 16, 0, 16, 16 });
+	connect_rooms(data->rooms[0], data->rooms[1]);
 
 
     // Load the shader
@@ -78,6 +95,7 @@ void engine_draw_last_pass(Engine* engine, GameData* data)
 			WHITE);
 
 
+	data->debug_text = (char*)TextFormat("total rooms: %i", get_total_num_rooms(data));
 	DrawText(data->debug_text, 10, 10, 20, MAROON);
 
 	EndDrawing();
@@ -104,8 +122,9 @@ void engine_update(Engine* engine, GameData* data)
 
 }
 
-void engine_exit(Engine* engine)
+void engine_exit(Engine* engine, GameData* data)
 {
-
+	for (int i = 0; i < MAX_ROOMS; i++)
+		free_room(data->rooms[i]);
 }
 

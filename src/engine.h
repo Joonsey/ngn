@@ -1,3 +1,4 @@
+#pragma once
 #include "raylib.h"
 #define PLATFORM_DESKTOP
 
@@ -8,12 +9,17 @@
 #endif
 
 #include <stdio.h>
+#include <stdlib.h>
+
+#include "room.h"
 
 #define screen_width 800
 #define screen_height 450
 
 #define render_width 240
 #define render_height 120
+
+#define MAX_ROOMS 4
 
 typedef struct Entity {
 	Vector2 position;
@@ -34,6 +40,7 @@ typedef struct Engine {
 typedef struct GameData {
 	Entity player;
 	char* debug_text;
+	Room* rooms[MAX_ROOMS];
 } GameData;
 
 #define LIST_OF_HOOKS \
@@ -43,7 +50,7 @@ typedef struct GameData {
 	HOOK(engine_render) \
 
 typedef void*(*engine_init_t)(Engine*, GameData*);
-typedef void*(*engine_exit_t)(Engine*);
+typedef void*(*engine_exit_t)(Engine*, GameData*);
 typedef void*(*engine_update_t)(Engine*, GameData*);
 typedef void*(*engine_render_t)(Engine*, GameData*);
 
