@@ -69,10 +69,16 @@ void engine_init(Engine* engine, GameData* data)
 
 	initiate_room_prefabs(engine, "resources/rooms");
 	add_room_from_prefab(1, engine, data);
+	add_room_from_prefab(2, engine, data);
 
+	//offset position for second room for debug purpose
+	data->rooms[1]->position = (Vector2){9 * TILE_SIZE, 0};
 
     // Load the shader
     engine->uv_shader = LoadShader(0, TextFormat("resources/shaders/glsl%i/uv.fs", GLSL_VERSION));
+
+	// Load textures
+	engine->texture_map = LoadTexture("resources/textures/texture_map.png");
 }
 
 void draw_entity(Entity* entity, Shader uv_shader)
@@ -88,6 +94,23 @@ void draw_entity(Entity* entity, Shader uv_shader)
 // UV mapping, paralax rendering etc.
 void engine_draw_first_pass(Engine* engine, GameData* data)
 {
+	int i, x, y;
+
+	for (i = 0; i < data->room_count; i++)
+	{
+		Room* current_room = data->rooms[i];
+
+		for (y = 0; y < current_room->height; y++)
+			for(x = 0; x < current_room->width; x++)
+			{
+				Tile tile = current_room->tiles[y][x];
+				Rectangle source_rect = {tile.type * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE};
+				Vector2 tile_position = {x * TILE_SIZE + current_room->position.x, y * TILE_SIZE + current_room->position.y};
+
+				DrawTextureRec(engine->texture_map, source_rect, tile_position, WHITE);
+			}
+	}
+
 	// do uv mapping
 	if (engine->settings.render_uv)
 	{
