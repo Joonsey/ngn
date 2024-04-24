@@ -9,23 +9,27 @@
 #endif
 
 #include <stdio.h>
+#include <string.h>
 #include <stdlib.h>
 
 #include "room.h"
 
-#define screen_width 800
-#define screen_height 450
+#define MAX_ROOM_HEIGHT 32
+#define MAX_ROOM_WIDTH  32
+#define screen_width	800
+#define screen_height	450
 
-#define render_width 240
-#define render_height 120
+#define render_width	240
+#define render_height	120
 
-#define MAX_ROOMS 4
+#define INITIAL_ROOM_CAP 4
 
 typedef struct Entity {
 	Vector2 position;
 	Texture2D texture; //TODO(J): can be a pointer so it's easier to change during runtime
 	Texture UV_texture;
 } Entity;
+
 
 typedef struct EngineSettings {
 	bool render_uv;
@@ -35,12 +39,15 @@ typedef struct Engine {
 	RenderTexture render_target;
 	Shader uv_shader;
 	EngineSettings settings;
+	Room room_map[255];
 } Engine;
 
 typedef struct GameData {
 	Entity player;
 	char* debug_text;
-	Room* rooms[MAX_ROOMS];
+	Room** rooms;
+	int room_count;
+	int room_capacity;
 } GameData;
 
 #define LIST_OF_HOOKS \

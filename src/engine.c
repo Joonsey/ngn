@@ -1,14 +1,21 @@
 #include "engine.h"
 
+void initiate_room_prefabs(Engine *engine, const char* dir_path)
+{
+	FilePathList fpl = LoadDirectoryFilesEx(dir_path, ".room", false);
+	for (int i = 0; i < fpl.count; i++)
+	{
+		const char* path = fpl.paths[i];
+		Room room = create_room_prefab(path);
+
+		engine->room_map[room.id] = room;
+	}
+}
+
+
 int get_total_num_rooms(GameData* data)
 {
-	// this will deprecate if we decide to heap allocate the rooms
-	int r, i;
-	r = 0;
-	for (i = 0; i < MAX_ROOMS; i++)
-		if (data->rooms[i] != NULL)
-			r ++;
-	return r;
+	return data->room_count;
 }
 
 Entity make_player(Texture player_texture, Texture UV_texture)
@@ -33,18 +40,35 @@ void player_init(Engine* engine, GameData* data)
 			);
 }
 
+void add_room_from_prefab(int prefab_id, Engine* engine, GameData* data)
+{
+	data->rooms[data->room_count] = malloc(sizeof(Room));
+	memcpy(data->rooms[data->room_count], &engine->room_map[prefab_id], sizeof(Room));
+
+	data->room_count++;
+	if (data->room_count >= data->room_capacity)
+	{
+		data->room_capacity = data->room_capacity * 2;
+		data->rooms = realloc(data->rooms, sizeof(Room*) * data->room_capacity);
+	}
+}
+
+
 void engine_init(Engine* engine, GameData* data)
 {
     // Initialization
 	engine->render_target = LoadRenderTexture(render_width, render_height);
+	data->rooms = malloc(sizeof(Room**) * INITIAL_ROOM_CAP);
+	data->room_capacity = INITIAL_ROOM_CAP;
+	data->room_count = 0;
 
 	player_init(engine, data);
 
 	// make sample rooms
 	// these should be loaded by some file or generation
-	data->rooms[0] = create_room(1, (Vector4) { 0, 0, 16, 16 });
-	data->rooms[1] = create_room(2, (Vector4) { 16, 0, 16, 16 });
-	connect_rooms(data->rooms[0], data->rooms[1]);
+
+	initiate_room_prefabs(engine, "resources/rooms");
+	add_room_from_prefab(1, engine, data);
 
 
     // Load the shader
@@ -124,7 +148,7 @@ void engine_update(Engine* engine, GameData* data)
 
 void engine_exit(Engine* engine, GameData* data)
 {
-	for (int i = 0; i < MAX_ROOMS; i++)
+	for (int i = 0; i < data->room_count; i++)
 		free_room(data->rooms[i]);
 }
 
