@@ -1,0 +1,8 @@
+# first row is metadata
+ID
+# below is tilemap
+# height and width is inferred
+1 0 1 0
+2 1 1 1
+1 0 1 0
+2 1 1 1
