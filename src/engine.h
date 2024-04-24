@@ -23,6 +23,7 @@
 #define render_height	120
 
 #define INITIAL_ROOM_CAP 4
+#define TILE_SIZE 16
 
 typedef struct Entity {
 	Vector2 position;
@@ -40,6 +41,7 @@ typedef struct Engine {
 	Shader uv_shader;
 	EngineSettings settings;
 	Room room_map[255];
+	Texture2D texture_map;
 } Engine;
 
 typedef struct GameData {
