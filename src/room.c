@@ -49,6 +49,7 @@ void connect_rooms(Room* room_one, Room* room_two)
 void free_room(Room* room)
 {
 	// because almost everything is heap allocated we have to clean it all up
+	if (!room) return;
 	for (int i = 0; i < room->height; i++)
 	{
 		free(room->tiles[i]);
