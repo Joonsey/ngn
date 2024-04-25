@@ -161,6 +161,17 @@ void engine_draw_first_pass(Engine* engine, GameData* data)
 			}
 	}
 
+	//move into function(?)
+	if(engine->settings.wall_hitbox)
+		for(i = 0; i < data->room_count; i++)
+			for(int tile = 0; tile < data->rooms[i]->no_of_walls; tile++)
+			{
+				Rectangle wall = data->rooms[i]->walls[tile];
+				wall.x += data->rooms[i]->position.x - data->camera_offset.x;
+				wall.y += data->rooms[i]->position.y - data->camera_offset.y;
+				DrawRectangleRec(wall, RED);
+			}
+
 	// do uv mapping
 	if (engine->settings.render_uv)
 	{
@@ -262,7 +273,17 @@ void engine_update(Engine* engine, GameData* data)
 			);
 	update_camera(target_pos, &data->camera_offset);
 
-
+	//debug options
+	if (IsKeyPressed(KEY_Q))
+	{
+		data->debug_text = "toggled uv mapping";
+		engine->settings.render_uv = !engine->settings.render_uv;
+	}
+	if (IsKeyPressed(KEY_Z))
+	{
+		data->debug_text = "toggled wall hitboxes";
+		engine->settings.wall_hitbox = !engine->settings.wall_hitbox;
+	}
 }
 
 void engine_exit(Engine* engine, GameData* data)
