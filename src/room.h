@@ -18,6 +18,8 @@ typedef struct Room {
 	Tile** tiles;
 	struct Room** connected_rooms;
 	int num_connected_rooms;
+	Rectangle* walls;
+	int no_of_walls;
 } Room;
 
 Room* create_room(int id, Vector4 dimensions);

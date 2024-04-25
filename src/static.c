@@ -12,16 +12,6 @@ int main()
 
     while (!WindowShouldClose())
     {
-        // Player movement
-        if (IsKeyDown(KEY_D)) data.player.position.x += 2.0f;
-        if (IsKeyDown(KEY_A)) data.player.position.x -= 2.0f;
-        if (IsKeyDown(KEY_W)) data.player.position.y -= 2.0f;
-        if (IsKeyDown(KEY_S)) data.player.position.y += 2.0f;
-        if (IsKeyPressed(KEY_Q))
-		{
-			data.debug_text = "toggled uv mapping";
-			engine.settings.render_uv = !engine.settings.render_uv;
-		}
 
 		engine_update(&engine, &data);
 		engine_render(&engine, &data);

@@ -59,6 +59,44 @@ void add_room_from_prefab(int prefab_id, Engine* engine, GameData* data)
 	}
 }
 
+void create_collision_maps(GameData* data)
+{
+	int i, x, y;
+	for(i = 0; i < data->room_count; i++)
+	{
+		int number_of_walls = 0;
+		Room* room = data->rooms[i];
+		//NOT SHRINKING TO SIZE OF LIST RIGHT NOW
+		room->walls = malloc(sizeof(Rectangle) * room->height * room->width);
+
+		for (y = 0; y < room->height; y++)
+			for (x = 0; x < room->width; x++)
+			{
+				if(room->tiles[y][x].type == WALL)
+				{
+					room->walls[number_of_walls] = (Rectangle){x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE};
+					number_of_walls++;
+				}
+					
+			}
+		room->no_of_walls = number_of_walls;
+	}
+}
+
+bool check_wall_collision(Entity* entity, GameData* data)
+{
+	for(int i = 0; i < data->room_count; i++)
+		for(int an = 0; an < data->rooms[i]->no_of_walls; an++)
+		{
+			Rectangle wall = data->rooms[i]->walls[an];
+			wall.x += data->rooms[i]->position.x;
+			wall.y += data->rooms[i]->position.y;
+			bool collision = CheckCollisionRecs((Rectangle){entity->position.x, entity->position.y, TILE_SIZE, TILE_SIZE}, wall);
+			if(collision) return true;
+			
+		}
+	return false;
+}
 
 void engine_init(Engine* engine, GameData* data)
 {
@@ -77,7 +115,10 @@ void engine_init(Engine* engine, GameData* data)
 	add_room_from_prefab(1, engine, data);
 	add_room_from_prefab(2, engine, data);
 
-	//offset position for second room for debug purpose
+	create_collision_maps(data);
+	
+
+	//offset position for second room for debug purposes
 	data->rooms[1]->position = (Vector2){9 * TILE_SIZE, 0};
 
 	player_init(engine, data);
@@ -181,8 +222,32 @@ void update_camera(Vector2 target_pos, Vector2 *camera_offset)
 	camera_offset->y += (target_pos.y - camera_offset->y) / delay_coefficient;
 }
 
+void update_player(Engine* engine, GameData* data)
+{		
+	// Player movement
+	bool collision = false;
+	if (IsKeyDown(KEY_D)) data->player.position.x += 2.0f;
+	collision = check_wall_collision(&data->player, data);
+	if(collision) data->player.position.x -= 2.0f;
+
+	if (IsKeyDown(KEY_A)) data->player.position.x -= 2.0f;
+	collision = check_wall_collision(&data->player, data);
+	if(collision) data->player.position.x += 2.0f;
+
+	if (IsKeyDown(KEY_W)) data->player.position.y -= 2.0f;
+	collision = check_wall_collision(&data->player, data);
+	if(collision) data->player.position.y += 2.0f;
+
+	if (IsKeyDown(KEY_S)) data->player.position.y += 2.0f;
+	collision = check_wall_collision(&data->player, data);
+	if(collision) data->player.position.y -= 2.0f;
+
+}
+
 void engine_update(Engine* engine, GameData* data)
 {
+	update_player(engine, data);
+
 	Vector2 target_pos = data->player.position;
 
 	if (data->player_inside_room) target_pos = center_room_position(*data->player_last_visited_room);
