@@ -20,7 +20,7 @@ int get_total_num_rooms(GameData* data)
 
 Entity make_player(Texture player_texture, Texture UV_texture)
 {
-	Vector2 pos = {(float)render_width / 2, (float)render_height / 2};
+	Vector2 pos = Vector2Zero();
 
 	Entity player;
 
@@ -38,6 +38,12 @@ void player_init(Engine* engine, GameData* data)
 			LoadTexture("resources/textures/cube.png"),
 			LoadTexture("resources/textures/palette-1x.png")
 			);
+
+	Room* players_start_room = data->rooms[0];
+	Vector2 start_pos = center_room_position(*players_start_room);
+	data->player.position = start_pos;
+	data->player_last_visited_room = players_start_room;
+	data->player_inside_room = true;
 }
 
 void add_room_from_prefab(int prefab_id, Engine* engine, GameData* data)
@@ -62,7 +68,7 @@ void engine_init(Engine* engine, GameData* data)
 	data->room_capacity = INITIAL_ROOM_CAP;
 	data->room_count = 0;
 
-	player_init(engine, data);
+	data->camera_offset = Vector2Zero();
 
 	// make sample rooms
 	// these should be loaded by some file or generation
@@ -74,6 +80,8 @@ void engine_init(Engine* engine, GameData* data)
 	//offset position for second room for debug purpose
 	data->rooms[1]->position = (Vector2){9 * TILE_SIZE, 0};
 
+	player_init(engine, data);
+
     // Load the shader
     engine->uv_shader = LoadShader(0, TextFormat("resources/shaders/glsl%i/uv.fs", GLSL_VERSION));
 
@@ -81,13 +89,13 @@ void engine_init(Engine* engine, GameData* data)
 	engine->texture_map = LoadTexture("resources/textures/texture_map.png");
 }
 
-void draw_entity(Entity* entity, Shader uv_shader)
+void draw_entity(Entity* entity, Shader uv_shader, Vector2 camera_offset)
 {
     SetShaderValueTexture(uv_shader, GetShaderLocation(uv_shader, "uUvMap"), entity->UV_texture);
 	SetShaderValue(uv_shader, GetShaderLocation(uv_shader, "uvmapwidth"), &entity->UV_texture.width, SHADER_UNIFORM_INT);
 	SetShaderValue(uv_shader, GetShaderLocation(uv_shader, "uvmapheight"), &entity->UV_texture.height, SHADER_UNIFORM_INT);
 
-	DrawTextureV(entity->texture, entity->position, WHITE);
+	DrawTextureV(entity->texture, Vector2Subtract(entity->position, camera_offset), WHITE);
 }
 
 // pre-processing render
@@ -106,8 +114,9 @@ void engine_draw_first_pass(Engine* engine, GameData* data)
 				Tile tile = current_room->tiles[y][x];
 				Rectangle source_rect = {tile.type * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE};
 				Vector2 tile_position = {x * TILE_SIZE + current_room->position.x, y * TILE_SIZE + current_room->position.y};
+				Vector2 tile_position_offset_camera = Vector2Subtract(tile_position, data->camera_offset);
 
-				DrawTextureRec(engine->texture_map, source_rect, tile_position, WHITE);
+				DrawTextureRec(engine->texture_map, source_rect, tile_position_offset_camera, WHITE);
 			}
 	}
 
@@ -115,14 +124,14 @@ void engine_draw_first_pass(Engine* engine, GameData* data)
 	if (engine->settings.render_uv)
 	{
 		BeginShaderMode(engine->uv_shader);
-		draw_entity(&data->player, engine->uv_shader);
+		draw_entity(&data->player, engine->uv_shader, data->camera_offset);
 		EndShaderMode();
 	}
 
 	// skip uv mapping (for debugging purposes)
 	else
 	{
-		draw_entity(&data->player, engine->uv_shader);
+		draw_entity(&data->player, engine->uv_shader, data->camera_offset);
 	}
 }
 
@@ -164,8 +173,30 @@ void engine_render(Engine* engine, GameData* data)
 
 }
 
+void update_camera(Vector2 target_pos, Vector2 *camera_offset)
+{
+	const float delay_coefficient = 20;
+
+	camera_offset->x += (target_pos.x - camera_offset->x) / delay_coefficient;
+	camera_offset->y += (target_pos.y - camera_offset->y) / delay_coefficient;
+}
+
 void engine_update(Engine* engine, GameData* data)
 {
+	Vector2 target_pos = data->player.position;
+
+	if (data->player_inside_room) target_pos = center_room_position(*data->player_last_visited_room);
+	else target_pos = Vector2Add(target_pos, (Vector2) {
+				data->player.texture.width / 2,
+				data->player.texture.height / 2}
+				);
+
+	target_pos = Vector2Subtract(target_pos, (Vector2){
+			(float)render_width / 2,
+			(float)render_height / 2}
+			);
+	update_camera(target_pos, &data->camera_offset);
+
 
 }
 

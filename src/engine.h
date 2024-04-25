@@ -1,5 +1,6 @@
 #pragma once
 #include "raylib.h"
+#include "raymath.h"
 #define PLATFORM_DESKTOP
 
 #if defined(PLATFORM_DESKTOP)
@@ -50,6 +51,9 @@ typedef struct GameData {
 	Room** rooms;
 	int room_count;
 	int room_capacity;
+	Vector2 camera_offset;
+	bool player_inside_room;
+	Room* player_last_visited_room;
 } GameData;
 
 #define LIST_OF_HOOKS \
@@ -67,7 +71,7 @@ Entity make_player(Texture player_texture, Texture UV_texture);
 
 
 void player_init(Engine* engine, GameData* data);
-void draw_entity(Entity* entity, Shader uv_shader);
+void draw_entity(Entity* entity, Shader uv_shader, Vector2 camera_offset);
 
 // pre-processing render
 // UV mapping, paralax rendering etc.

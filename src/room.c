@@ -114,3 +114,12 @@ Room create_room_prefab(const char* filename)
 	room.id = tile_id;
 	return room;
 }
+
+Vector2 center_room_position(Room room)
+{
+	return  (Vector2){
+		room.position.x + room.width * TILE_SIZE / 2,
+		room.position.y + room.height * TILE_SIZE / 2,
+	};
+
+}
