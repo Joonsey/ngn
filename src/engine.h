@@ -35,6 +35,7 @@ typedef struct Entity {
 
 typedef struct EngineSettings {
 	bool render_uv;
+	bool wall_hitbox;
 } EngineSettings;
 
 typedef struct Engine {
