@@ -261,6 +261,21 @@ void engine_update(Engine* engine, GameData* data)
 
 	Vector2 target_pos = data->player.position;
 
+	//integrate checking with only connected rooms for more efficiency(?)
+	data->player_inside_room = false;
+
+	for(int i = 0; i < data->room_count; i++)
+	{
+		Rectangle room = {data->rooms[i]->position.x, data->rooms[i]->position.y, data->rooms[i]->width * TILE_SIZE, data->rooms[i]->height * TILE_SIZE};
+		Rectangle player = {data->player.position.x, data->player.position.y, TILE_SIZE, TILE_SIZE};
+		bool collision = CheckCollisionRecs(room, player);
+		if(collision)
+		{
+			data->player_inside_room = true;
+			data->player_last_visited_room = data->rooms[i];
+		}
+	}
+
 	if (data->player_inside_room) target_pos = center_room_position(*data->player_last_visited_room);
 	else target_pos = Vector2Add(target_pos, (Vector2) {
 				data->player.texture.width / 2,
