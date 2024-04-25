@@ -2,8 +2,8 @@
 #include "engine.h"
 typedef enum {
 	EMPTY,
-	WALL,
-	FLOOR
+	FLOOR,
+	WALL
 } TileType;
 
 typedef struct Tile {
