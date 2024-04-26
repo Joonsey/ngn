@@ -57,16 +57,10 @@ typedef struct GameData {
 	Room* player_last_visited_room;
 } GameData;
 
-#define LIST_OF_HOOKS \
-	HOOK(engine_init) \
-	HOOK(engine_exit) \
-	HOOK(engine_update) \
-	HOOK(engine_render) \
-
-typedef void*(*engine_init_t)(Engine*, GameData*);
-typedef void*(*engine_exit_t)(Engine*, GameData*);
-typedef void*(*engine_update_t)(Engine*, GameData*);
-typedef void*(*engine_render_t)(Engine*, GameData*);
+void engine_init(Engine*, GameData*);
+void engine_exit(Engine*, GameData*);
+void engine_update(Engine*, GameData*);
+void engine_render(Engine*, GameData*);
 
 Entity make_player(Texture player_texture, Texture UV_texture);
 
