@@ -5,6 +5,7 @@
 #include <arpa/inet.h>
 
 #include <raylib.h>
+#include "../src/engine.h"
 
 #define MAX_CLIENTS 2
 #define DEFAULT_SERVER_IP "127.0.0.1"
@@ -13,16 +14,22 @@
 
 // Define the packet structure
 typedef enum PacketType : u_int16_t {
-	EMPTY,
 	SERVER_FULL,
 	GREET,
+	MAP_DATA,
 	POSITION_UPDATE
 } PacketType;
 
 typedef struct {
     uint32_t id;
-    uint16_t data_length;
 	PacketType type;
+    uint16_t data_length;
+
+	// information regarding fragmented packets
+	bool is_fragmented;
+    uint16_t fragment_id;
+    uint16_t total_fragments;
+
 	union {
 		char* data; // dump
 		char greet_data[6];
@@ -34,6 +41,22 @@ typedef struct {
     struct sockaddr_in address;
     int sockfd;
 } Client;
+
+
+const int safety_margin = 10;
+int chunk_size = BUFFER_SIZE - sizeof(Packet) - safety_margin;
+
+void build_tiles_and_walls(GameData* data)
+{
+	// we only obtain references to tiles and walls from the server
+	// but we don't actually need them
+	//
+	// we can just obtain position and room id to generate our own, and rely entirely on the world generation from the server
+	//
+	// ideally we can optimize for sending only partial packets as well where can do more procedural world generation
+	// spent 2 hours trying to send world data until i realised we don't need to send the tiles & walls lol
+
+}
 
 // Function to serialize a packet to a byte array
 size_t serialize_packet(const Packet* packet, uint8_t* buffer, size_t buffer_size) {
@@ -56,6 +79,18 @@ size_t serialize_packet(const Packet* packet, uint8_t* buffer, size_t buffer_siz
     memcpy(buffer + offset, &(packet->data_length), sizeof(uint16_t));
     offset += sizeof(uint16_t);
 
+    // Serialize is_fragmented
+    memcpy(buffer + offset, &(packet->is_fragmented), sizeof(bool));
+    offset += sizeof(bool);
+
+    // Serialize fragment_id
+    memcpy(buffer + offset, &(packet->fragment_id), sizeof(uint16_t));
+    offset += sizeof(uint16_t);
+
+    // Serialize total_fragments
+    memcpy(buffer + offset, &(packet->total_fragments), sizeof(uint16_t));
+    offset += sizeof(uint16_t);
+
 	switch (packet->type)
 	{
 		case GREET:
@@ -68,7 +103,9 @@ size_t serialize_packet(const Packet* packet, uint8_t* buffer, size_t buffer_siz
 			memcpy(buffer + offset, &packet->position, sizeof(packet->position));
 			offset += sizeof(packet->position);
 			break;
-		case EMPTY:
+		case MAP_DATA:
+			memcpy(buffer + offset, packet->data, BUFFER_SIZE - offset);
+			offset += buffer_size;
 			break;
 		default: break;
 	}
@@ -93,6 +130,18 @@ void deserialize_packet(const uint8_t* buffer, size_t buffer_size, Packet* packe
     memcpy(&(packet->data_length), buffer + offset, sizeof(uint16_t));
     offset += sizeof(uint16_t);
 
+    // Deserialize is_fragmented
+    memcpy(&(packet->is_fragmented), buffer + offset,sizeof(bool));
+    offset += sizeof(bool);
+
+    // Deserialize fragment_id
+    memcpy(&(packet->fragment_id), buffer + offset, sizeof(uint16_t));
+    offset += sizeof(uint16_t);
+
+    // Deserialize total_fragments
+    memcpy(&(packet->total_fragments), buffer + offset, sizeof(uint16_t));
+    offset += sizeof(uint16_t);
+
     // Allocate memory for data
     packet->data = (char*)malloc(packet->data_length);
 
@@ -111,9 +160,41 @@ void deserialize_packet(const uint8_t* buffer, size_t buffer_size, Packet* packe
 			memcpy(&packet->position, buffer + offset, sizeof(packet->position));
 			offset += sizeof(packet->position);
 			break;
-		case EMPTY:
-			break;
 		default: break;
+	}
+}
+
+void send_map_data_to_client(Client* client, GameData* data) {
+	int num_fragments = (data->room_count * sizeof(Room)) / chunk_size;
+	if ((data->room_count * sizeof(Room)) % chunk_size > 0) {
+		num_fragments++; // Account for the last partial chunk
+	}
+
+	for (int i = 0; i < num_fragments; ++i) {
+		uint8_t send_buffer[BUFFER_SIZE] = {0};
+		Packet packet = {0};
+		packet.id = 0;
+		packet.type = MAP_DATA;
+
+		int chunk_offset = i * chunk_size;
+		int chunk_length = chunk_size;
+		if (i == num_fragments - 1) {
+			// Adjust for the last partial chunk
+			chunk_length = (data->room_count * sizeof(Room)) % chunk_size;
+		}
+
+		packet.data_length = chunk_length;
+		packet.is_fragmented = true;
+		packet.fragment_id = i;
+		packet.total_fragments = data->room_count;
+
+		packet.data = malloc(chunk_length);
+		memcpy(packet.data, data->rooms + chunk_offset, chunk_length);
+
+		size_t serialized_size = serialize_packet(&packet, send_buffer, sizeof(send_buffer));
+		sendto(client->sockfd, send_buffer, serialized_size, 0, (struct sockaddr *)&client->address, sizeof(client->address));
+
+		if (packet.data != NULL) free(packet.data); // Free allocated memory for data
 	}
 }
 
@@ -135,6 +216,20 @@ void run_server(char *server_ip, int server_port)
     server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
     server_addr.sin_port = htons(server_port);
 
+	Engine engine = {0};
+	GameData data = {0};
+
+	data.rooms = malloc(sizeof(Room**) * INITIAL_ROOM_CAP);
+	data.room_capacity = INITIAL_ROOM_CAP;
+	data.room_count = 0;
+
+	initiate_room_prefabs(&engine, "resources/rooms");
+	add_room_from_prefab(1, &engine, &data);
+	add_room_from_prefab(2, &engine, &data);
+
+	create_collision_maps(&data);
+
+
     // Bind socket to the server address
     if (bind(sockfd, (struct sockaddr *)&server_addr, sizeof(server_addr)) == -1) {
         perror("Binding failed");
@@ -152,13 +247,16 @@ void run_server(char *server_ip, int server_port)
 		uint8_t send_buffer[BUFFER_SIZE];
 		uint8_t receive_buffer[BUFFER_SIZE];
 
-        Packet received_packet;
+        Packet received_packet = {0};
 		// here you would think we could ommit the receive and just copy straight into memory as such:
         // int bytes_received = recvfrom(sockfd, &receive , sizeof(received_packet), 0, (struct sockaddr *)&client_addr, &addr_len);
 		// but this does not properly seriailze, don't ask me why, the type and data_length are flipped this way...
 		// potentialy worth doing if this is an easy fix?
 		//
 		// for now we shove it into this buffer and deserialize it explicitly.
+		//
+		// NOTE: this is fixed now but keeping the note, and keeping it as it is!
+		// it was because we serialized the packet in serialize_packet in a different order than the structure is declared.
 
         int bytes_received = recvfrom(sockfd, receive_buffer, BUFFER_SIZE, 0, (struct sockaddr *)&client_addr, &addr_len);
         if (bytes_received == -1) {
@@ -186,7 +284,7 @@ void run_server(char *server_ip, int server_port)
                 num_clients++;
                 printf("New client connected\n");
             } else {
-				Packet full_response_packet;
+				Packet full_response_packet = {0};
 				full_response_packet.id = 201;
 				full_response_packet.type = SERVER_FULL;
 				full_response_packet.data_length = 6;
@@ -205,16 +303,19 @@ void run_server(char *server_ip, int server_port)
         printf("Received Packet ID: %u\n", received_packet.id);
         printf("Received Data Length: %u\n", received_packet.data_length);
         printf("Received Data Type: %u\n", received_packet.type);
-		if (received_packet.type == POSITION_UPDATE) printf("Received Data Position: %f, %f\n", received_packet.position.x, received_packet.position.y);
+		switch (received_packet.type)
+		{
+			case POSITION_UPDATE:
+				printf("Received Data Position: %f, %f\n", received_packet.position.x, received_packet.position.y);
+				break;
 
-        // Echo back to the client
-        if (sendto(sockfd, (uint8_t *)&received_packet, bytes_received, 0, (struct sockaddr *)&client_addr, addr_len) == -1) {
-            perror("sendto failed");
-            exit(EXIT_FAILURE);
+			case GREET:
+				send_map_data_to_client(&clients[client_index], &data);
+				printf("sending map data\n");
 
+		}
 
-		if (received_packet.data != NULL) free(received_packet.data);
-        }
+		//if (received_packet.data != NULL) free(received_packet.data);
     }
 
     // Close the socket
@@ -231,6 +332,10 @@ void run_client(char *server_ip, int server_port)
     socklen_t addr_len = sizeof(server_addr);
     char buffer[BUFFER_SIZE];
 
+	int room_address_offset;
+
+	GameData data = {0};
+
     // Create UDP socket
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1) {
         perror("Socket creation failed");
@@ -244,11 +349,10 @@ void run_client(char *server_ip, int server_port)
     server_addr.sin_port = htons(server_port);
 
     // Create a sample packet
-    Packet my_packet;
+    Packet my_packet = {0};
     my_packet.id = 1;
-    my_packet.type = POSITION_UPDATE;
-    my_packet.data_length = sizeof(Vector2);
-    my_packet.position = (Vector2){ 20, 271 };
+    my_packet.type = GREET;
+    my_packet.data_length = sizeof(my_packet.greet_data);
 
     // Serialize the packet
     uint8_t send_buffer[BUFFER_SIZE];
@@ -260,25 +364,55 @@ void run_client(char *server_ip, int server_port)
         exit(EXIT_FAILURE);
     }
 
-    // Receive response from the server
-    int bytes_received = recvfrom(sockfd, buffer, BUFFER_SIZE, 0, (struct sockaddr *)&server_addr, &addr_len);
-    if (bytes_received == -1) {
-        perror("recvfrom failed");
-        exit(EXIT_FAILURE);
-    }
+	while (1){
+		// Receive response from the server
+		int bytes_received = recvfrom(sockfd, buffer, BUFFER_SIZE, 0, (struct sockaddr *)&server_addr, &addr_len);
+		if (bytes_received == -1) {
+			perror("recvfrom failed");
+			exit(EXIT_FAILURE);
+		}
 
-    // Deserialize the response packet
-    Packet response_packet;
-    deserialize_packet((uint8_t*)&buffer, bytes_received, &response_packet);
+		// Deserialize the response packet
+		Packet response_packet = {0};
+		deserialize_packet((uint8_t*)&buffer, bytes_received, &response_packet);
 
-    // Print the response packet
-    printf("Received Packet ID: %u\n", response_packet.id);
-    printf("Received Data Length: %u\n", response_packet.data_length);
-    printf("Received Data Type: %u\n", response_packet.type);
+		// Print the response packet
+		printf("Received Packet ID: %u\n", response_packet.id);
+		printf("Received Data Length: %u\n", response_packet.data_length);
+		printf("Received Data Type: %u\n", response_packet.type);
 
-    // Clean up
-	if (response_packet.data != NULL) free(response_packet.data);
-    close(sockfd);
+		switch(response_packet.type) {
+			case MAP_DATA:
+				if (response_packet.is_fragmented) {
+					uint32_t data_id = response_packet.id;
+					uint16_t fragment_id = response_packet.fragment_id;
+					int room_count = response_packet.total_fragments;
+
+					// Calculate offset within data.rooms for this fragment
+
+					printf("got fragment packet id %d out of %d total\n", fragment_id, response_packet.total_fragments);
+					if (fragment_id == 0) {
+						room_address_offset = 0;
+						if (data.rooms != NULL) free(data.rooms);
+						data.room_count = room_count; // Update expected room count
+						data.room_capacity = data.room_count + 1;
+						data.rooms = malloc(sizeof(Room)* data.room_capacity);
+					}
+
+					// Copy received fragment data directly into data.rooms
+					memcpy(data.rooms + room_address_offset, response_packet.data, response_packet.data_length);
+					room_address_offset += response_packet.data_length;
+
+					build_tiles_and_walls(&data);
+				}
+				break;
+				// ... handle other packet types ...
+		}
+
+		// Clean up
+		if (response_packet.data != NULL) free(response_packet.data);
+		close(sockfd);
+	}
 }
 
 int main(int argc, char *argv[]) {

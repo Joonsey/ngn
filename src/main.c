@@ -49,7 +49,7 @@ int main(void)
     while (!WindowShouldClose())
     {
 
-		if (IsKeyPressed(KEY_R)) {
+		if (IsKeyPressed(KEY_R)){
 			data.debug_text = "reloading engine lib...";
 			if (!load_dls()) return 1;
 		}
