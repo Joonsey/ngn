@@ -46,7 +46,7 @@ typedef struct {
 const int safety_margin = 10;
 int chunk_size = BUFFER_SIZE - sizeof(Packet) - safety_margin;
 
-void build_tiles_and_walls(GameData* data)
+void build_tiles_and_walls(Engine *engine, GameData* data)
 {
 	// we only obtain references to tiles and walls from the server
 	// but we don't actually need them
@@ -55,6 +55,18 @@ void build_tiles_and_walls(GameData* data)
 	//
 	// ideally we can optimize for sending only partial packets as well where can do more procedural world generation
 	// spent 2 hours trying to send world data until i realised we don't need to send the tiles & walls lol
+	//
+	for (int i = 0; i < data->room_count; i++)
+	{
+		Room *room = &data->rooms[i];
+
+		Vector2 position = room->position;
+
+		memcpy(room, &engine->room_map[room->id], sizeof(Room));
+		room->position = position;
+	}
+
+	create_collision_maps(data);
 
 }
 
@@ -334,7 +346,14 @@ void run_client(char *server_ip, int server_port)
 
 	int room_address_offset;
 
+	Engine engine = {0};
 	GameData data = {0};
+
+	data.rooms = malloc(sizeof(Room**) * INITIAL_ROOM_CAP);
+	data.room_capacity = INITIAL_ROOM_CAP;
+	data.room_count = 0;
+
+	initiate_room_prefabs(&engine, "resources/rooms");
 
     // Create UDP socket
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1) {
@@ -403,7 +422,7 @@ void run_client(char *server_ip, int server_port)
 					memcpy(data.rooms + room_address_offset, response_packet.data, response_packet.data_length);
 					room_address_offset += response_packet.data_length;
 
-					build_tiles_and_walls(&data);
+					build_tiles_and_walls(&engine, &data);
 				}
 				break;
 				// ... handle other packet types ...
@@ -411,8 +430,8 @@ void run_client(char *server_ip, int server_port)
 
 		// Clean up
 		if (response_packet.data != NULL) free(response_packet.data);
-		close(sockfd);
 	}
+	close(sockfd);
 }
 
 int main(int argc, char *argv[]) {
