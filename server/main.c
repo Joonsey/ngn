@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <pthread.h>
 #include <arpa/inet.h>
 
 #include <raylib.h>
@@ -37,10 +38,25 @@ typedef struct {
 	};
 } Packet;
 
+
+typedef struct {
+	Engine* engine;
+	GameData* data;
+	pthread_t thread;
+} ClientData;
+
+
+typedef struct {
+	char *server_ip;
+	int server_port;
+	ClientData *client_data;
+} RunClientArguments;
+
+
 typedef struct {
     struct sockaddr_in address;
     int sockfd;
-} Client;
+} ConnectedClient;
 
 
 const int safety_margin = 10;
@@ -67,6 +83,7 @@ void build_tiles_and_walls(Engine *engine, GameData* data)
 	}
 
 	create_collision_maps(data);
+	printf("completed building tiles and walls\n");
 
 }
 
@@ -176,7 +193,7 @@ void deserialize_packet(const uint8_t* buffer, size_t buffer_size, Packet* packe
 	}
 }
 
-void send_map_data_to_client(Client* client, GameData* data) {
+void send_map_data_to_client(ConnectedClient* client, GameData* data) {
 	int num_fragments = (data->room_count * sizeof(Room)) / chunk_size;
 	if ((data->room_count * sizeof(Room)) % chunk_size > 0) {
 		num_fragments++; // Account for the last partial chunk
@@ -239,6 +256,8 @@ void run_server(char *server_ip, int server_port)
 	add_room_from_prefab(1, &engine, &data);
 	add_room_from_prefab(2, &engine, &data);
 
+	data.rooms[1].position = (Vector2){ data.rooms[0].width * TILE_SIZE + TILE_SIZE, 0 };
+
 	create_collision_maps(&data);
 
 
@@ -251,7 +270,7 @@ void run_server(char *server_ip, int server_port)
     printf("UDP server started on port %d\n", server_port);
 
     // Initialize array to store client information
-    Client clients[MAX_CLIENTS];
+    ConnectedClient clients[MAX_CLIENTS];
     int num_clients = 0;
 
     while (1) {
@@ -337,23 +356,20 @@ void run_server(char *server_ip, int server_port)
 
 }
 
-void run_client(char *server_ip, int server_port)
+void* run_client(void* arg)
 {
+	RunClientArguments* args = (RunClientArguments*)arg;
+	char *server_ip = args->server_ip;
+	int server_port = args->server_port;
+	ClientData *client_data = args->client_data;
+
 	int sockfd;
+
     struct sockaddr_in server_addr;
     socklen_t addr_len = sizeof(server_addr);
     char buffer[BUFFER_SIZE];
 
 	int room_address_offset;
-
-	Engine engine = {0};
-	GameData data = {0};
-
-	data.rooms = malloc(sizeof(Room**) * INITIAL_ROOM_CAP);
-	data.room_capacity = INITIAL_ROOM_CAP;
-	data.room_count = 0;
-
-	initiate_room_prefabs(&engine, "resources/rooms");
 
     // Create UDP socket
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1) {
@@ -412,17 +428,17 @@ void run_client(char *server_ip, int server_port)
 					printf("got fragment packet id %d out of %d total\n", fragment_id, response_packet.total_fragments);
 					if (fragment_id == 0) {
 						room_address_offset = 0;
-						if (data.rooms != NULL) free(data.rooms);
-						data.room_count = room_count; // Update expected room count
-						data.room_capacity = data.room_count + 1;
-						data.rooms = malloc(sizeof(Room)* data.room_capacity);
+						//if (client_data->data->rooms != NULL) free(client_data->data->rooms);
+						client_data->data->room_count = room_count; // Update expected room count
+						client_data->data->room_capacity = client_data->data->room_count + 1;
+						client_data->data->rooms = malloc(sizeof(Room)* client_data->data->room_capacity);
 					}
 
 					// Copy received fragment data directly into data.rooms
-					memcpy(data.rooms + room_address_offset, response_packet.data, response_packet.data_length);
+					memcpy(client_data->data->rooms + room_address_offset, response_packet.data, response_packet.data_length);
 					room_address_offset += response_packet.data_length;
 
-					build_tiles_and_walls(&engine, &data);
+					build_tiles_and_walls(client_data->engine, client_data->data);
 				}
 				break;
 				// ... handle other packet types ...
@@ -448,9 +464,53 @@ int main(int argc, char *argv[]) {
             } else {
 				printf("No server ip was passed, using default loopback interface\n");
             }
+
 			run_server(server_ip, server_port);
 			return 0;
         }
     }
-	run_client(server_ip, server_port);
+	ClientData client;
+	RunClientArguments args;
+	args.client_data = &client;
+	args.server_ip = server_ip;
+	args.server_port = server_port;
+
+	Engine engine = {0};
+	GameData data = {0};
+
+	data.rooms = malloc(sizeof(Room**) * INITIAL_ROOM_CAP);
+	data.room_capacity = INITIAL_ROOM_CAP;
+	data.room_count = 0;
+
+	client.data = &data;
+	client.engine = &engine;
+	initiate_room_prefabs(&engine, "resources/rooms");
+
+	if (pthread_create(&client.thread, NULL, run_client, (void*)&args) == 0)
+	{
+		printf("error creating client thread");
+	}
+
+	InitWindow(screen_width, screen_height, "ngn");
+	engine.render_target = LoadRenderTexture(render_width, render_height);
+
+	player_init(&engine, &data);
+    engine.uv_shader = LoadShader(0, TextFormat("resources/shaders/glsl%i/uv.fs", GLSL_VERSION));
+	engine.texture_map = LoadTexture("resources/textures/texture_map.png");
+
+	SetTargetFPS(60);
+
+	while (!WindowShouldClose())
+	{
+
+		engine_update(&engine, &data);
+		engine_render(&engine, &data);
+
+	}
+
+	// De-Initialization
+	UnloadShader(engine.uv_shader);
+
+	engine_exit(&engine, &data);
+	CloseWindow();
 }
