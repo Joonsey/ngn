@@ -28,7 +28,7 @@
 
 typedef struct Entity {
 	Vector2 position;
-	Texture2D texture; //TODO(J): can be a pointer so it's easier to change during runtime
+	Texture2D texture;
 	Texture UV_texture;
 } Entity;
 
