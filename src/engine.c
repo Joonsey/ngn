@@ -77,7 +77,6 @@ void create_collision_maps(GameData* data)
 					room->walls[number_of_walls] = (Rectangle){x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE};
 					number_of_walls++;
 				}
-					
 			}
 		room->no_of_walls = number_of_walls;
 	}
@@ -93,7 +92,6 @@ bool check_wall_collision(Entity* entity, GameData* data)
 			wall.y += data->rooms[i]->position.y;
 			bool collision = CheckCollisionRecs((Rectangle){entity->position.x, entity->position.y, TILE_SIZE, TILE_SIZE}, wall);
 			if(collision) return true;
-			
 		}
 	return false;
 }
@@ -116,7 +114,7 @@ void engine_init(Engine* engine, GameData* data)
 	add_room_from_prefab(2, engine, data);
 
 	create_collision_maps(data);
-	
+
 
 	//offset position for second room for debug purposes
 	data->rooms[1]->position = (Vector2){9 * TILE_SIZE, 0};
@@ -234,7 +232,7 @@ void update_camera(Vector2 target_pos, Vector2 *camera_offset)
 }
 
 void update_player(Engine* engine, GameData* data)
-{		
+{
 	// Player movement
 	bool collision = false;
 	if (IsKeyDown(KEY_D)) data->player.position.x += 2.0f;
