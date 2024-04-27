@@ -37,20 +37,23 @@ typedef struct {
 	};
 } Packet;
 
-
 typedef struct {
 	Engine* engine;
 	GameData* data;
 	pthread_t thread;
 } ClientData;
 
+typedef struct {
+	char *server_ip;
+	int server_port;
+	bool setup_complete;
+} RunServerArguments;
 
 typedef struct {
 	char *server_ip;
 	int server_port;
 	ClientData *client_data;
 } RunClientArguments;
-
 
 typedef struct {
     struct sockaddr_in address;
@@ -216,7 +219,7 @@ void send_map_data_to_client(ConnectedClient* client, GameData* data) {
 		packet.fragment_id = i;
 		packet.total_fragments = data->room_count;
 
-		packet.data = malloc(chunk_length);
+		packet.data = (char*)malloc(chunk_length);
 		memcpy(packet.data, data->rooms + chunk_offset, chunk_length);
 
 		size_t serialized_size = serialize_packet(&packet, send_buffer, sizeof(send_buffer));
@@ -226,8 +229,11 @@ void send_map_data_to_client(ConnectedClient* client, GameData* data) {
 	}
 }
 
-void run_server(char *server_ip, int server_port)
+void* run_server(void* arg)
 {
+	RunServerArguments* args = (RunServerArguments*)arg;
+	char *server_ip = args->server_ip;
+	int server_port = args->server_port;
     int sockfd;
     struct sockaddr_in server_addr, client_addr;
     socklen_t addr_len = sizeof(client_addr);
@@ -247,7 +253,7 @@ void run_server(char *server_ip, int server_port)
 	Engine engine = {0};
 	GameData data = {0};
 
-	data.rooms = malloc(sizeof(Room**) * INITIAL_ROOM_CAP);
+	data.rooms = (Room*)malloc(sizeof(Room) * INITIAL_ROOM_CAP);
 	data.room_capacity = INITIAL_ROOM_CAP;
 	data.room_count = 0;
 
@@ -255,7 +261,7 @@ void run_server(char *server_ip, int server_port)
 	add_room_from_prefab(1, &engine, &data);
 	add_room_from_prefab(2, &engine, &data);
 
-	data.rooms[1].position = (Vector2){ data.rooms[0].width * TILE_SIZE + TILE_SIZE, 0 };
+	data.rooms[1].position = (Vector2){ (float)data.rooms[0].width * TILE_SIZE + TILE_SIZE, 0 };
 
 	create_collision_maps(&data);
 
@@ -272,6 +278,7 @@ void run_server(char *server_ip, int server_port)
     ConnectedClient clients[MAX_CLIENTS];
     int num_clients = 0;
 
+	args->setup_complete = true;
     while (1) {
         // Receive data from a client
 		uint8_t send_buffer[BUFFER_SIZE];
@@ -351,15 +358,13 @@ void run_server(char *server_ip, int server_port)
     // Close the socket
     close(sockfd);
 
-    return;
-
 }
 
 void* run_client(void* arg)
 {
 	RunClientArguments* args = (RunClientArguments*)arg;
 	char *server_ip = args->server_ip;
-	int server_port = args->server_port;
+	int server_port = 8888;
 	ClientData *client_data = args->client_data;
 
 	int sockfd;
@@ -430,7 +435,7 @@ void* run_client(void* arg)
 						//if (client_data->data->rooms != NULL) free(client_data->data->rooms);
 						client_data->data->room_count = room_count; // Update expected room count
 						client_data->data->room_capacity = client_data->data->room_count + 1;
-						client_data->data->rooms = malloc(sizeof(Room)* client_data->data->room_capacity);
+						client_data->data->rooms = (Room*)malloc(sizeof(Room)* client_data->data->room_capacity);
 					}
 
 					// Copy received fragment data directly into data.rooms

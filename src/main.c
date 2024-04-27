@@ -20,9 +20,27 @@ int main(int argc, char *argv[]) {
             } else {
 				printf("No server ip was passed, using default loopback interface\n");
             }
-
-			run_server(server_ip, server_port);
+			RunServerArguments args;
+			args.server_ip = server_ip;
+			args.server_port = server_port;
+			run_server(&args);
 			return 0;
+        }
+		else if (strcmp(argv[i], "--local") == 0) {
+			pthread_t server_thread;
+			RunServerArguments args;
+			args.server_ip = DEFAULT_SERVER_IP;
+			args.server_port = DEFAULT_SERVER_PORT;
+			if (pthread_create(&server_thread, NULL, run_server, (void*)&args) != 0)
+			{
+				printf("error creating server thread\n");
+				return 1;
+			}
+			while (!args.setup_complete)
+			{
+				printf("waiting for local server to start...\n");
+				sleep(1);
+			}
         }
     }
 	ClientData client;
@@ -42,9 +60,10 @@ int main(int argc, char *argv[]) {
 	client.engine = &engine;
 	initiate_room_prefabs(&engine, "resources/rooms");
 
-	if (pthread_create(&client.thread, NULL, run_client, (void*)&args) == 0)
+	if (pthread_create(&client.thread, NULL, run_client, (void*)&args) != 0)
 	{
-		printf("error creating client thread");
+		printf("error creating client thread\n");
+		return 1;
 	}
 
 	InitWindow(screen_width, screen_height, "ngn");
