@@ -1,57 +1,78 @@
-#include <minwindef.h>
-#include <minwinbase.h>
-#define SOCKET int
-#define INADDR_ANY (unsigned long)0x00000000
-#define INADDR_LOOPBACK 0x7f000001
-#define INADDR_BROADCAST (u_long)0xffffffff
-#define INADDR_NONE 0xffffffff
-#define AF_INET 2
-#define SOCK_DGRAM 2
-#define WSADESCRIPTION_LEN	256
-#define WSASYS_STATUS_LEN	128
-typedef struct WSAData {
-	WORD		wVersion;
-	WORD		wHighVersion;
-	unsigned short	iMaxSockets;
-	unsigned short	iMaxUdpDg;
-	char		*lpVendorInfo;
-	char		szDescription[WSADESCRIPTION_LEN+1];
-	char		szSystemStatus[WSASYS_STATUS_LEN+1];
-} WSADATA, *LPWSADATA;
-struct in_addr {
-    unsigned long s_addr;  // load with inet_aton()
-};
+#if defined(_WIN32)
+// To avoid conflicting windows.h symbols with raylib, some flags are defined
+// WARNING: Those flags avoid inclusion of some Win32 headers that could be required
+// by user at some point and won't be included...
+//-------------------------------------------------------------------------------------
 
-struct sockaddr_in {
-    short            sin_family;   // e.g. AF_INET
-    unsigned short   sin_port;     // e.g. htons(3490)
-    struct in_addr   sin_addr;     // see struct in_addr, below
-    char             sin_zero[8];  // zero this if you want to
-};
+// If defined, the following flags inhibit definition of the indicated items.
+#define NOGDICAPMASKS     // CC_*, LC_*, PC_*, CP_*, TC_*, RC_
+#define NOVIRTUALKEYCODES // VK_*
+#define NOWINMESSAGES     // WM_*, EM_*, LB_*, CB_*
+#define NOWINSTYLES       // WS_*, CS_*, ES_*, LBS_*, SBS_*, CBS_*
+#define NOSYSMETRICS      // SM_*
+#define NOMENUS           // MF_*
+#define NOICONS           // IDI_*
+#define NOKEYSTATES       // MK_*
+#define NOSYSCOMMANDS     // SC_*
+#define NORASTEROPS       // Binary and Tertiary raster ops
+#define NOSHOWWINDOW      // SW_*
+#define OEMRESOURCE       // OEM Resource values
+#define NOATOM            // Atom Manager routines
+#define NOCLIPBOARD       // Clipboard routines
+#define NOCOLOR           // Screen colors
+#define NOCTLMGR          // Control and Dialog routines
+#define NODRAWTEXT        // DrawText() and DT_*
+#define NOGDI             // All GDI defines and routines
+#define NOKERNEL          // All KERNEL defines and routines
+#define NOUSER            // All USER defines and routines
+//#define NONLS             // All NLS defines and routines
+#define NOMB              // MB_* and MessageBox()
+#define NOMEMMGR          // GMEM_*, LMEM_*, GHND, LHND, associated routines
+#define NOMETAFILE        // typedef METAFILEPICT
+#define NOMINMAX          // Macros min(a,b) and max(a,b)
+#define NOMSG             // typedef MSG and associated routines
+#define NOOPENFILE        // OpenFile(), OemToAnsi, AnsiToOem, and OF_*
+#define NOSCROLL          // SB_* and scrolling routines
+#define NOSERVICE         // All Service Controller routines, SERVICE_ equates, etc.
+#define NOSOUND           // Sound driver routines
+#define NOTEXTMETRIC      // typedef TEXTMETRIC and associated routines
+#define NOWH              // SetWindowsHook and WH_*
+#define NOWINOFFSETS      // GWL_*, GCL_*, associated routines
+#define NOCOMM            // COMM driver routines
+#define NOKANJI           // Kanji support stuff.
+#define NOHELP            // Help engine interface.
+#define NOPROFILER        // Profiler interface.
+#define NODEFERWINDOWPOS  // DeferWindowPos routines
+#define NOMCX             // Modem Configuration Extensions
 
-struct sockaddr {
-	unsigned short	sa_family;
-	char	sa_data[14];
-};
+// Type required before windows.h inclusion
+typedef struct tagMSG *LPMSG;
 
-#define ADDR_ANY INADDR_ANY
-typedef struct _WSABUF {
-long len;
-char *buf;
-} WSABUF,*LPWSABUF;
-typedef struct _OVERLAPPED *LPWSAOVERLAPPED;
-typedef void (CALLBACK *LPWSAOVERLAPPED_COMPLETION_ROUTINE)(DWORD dwError,DWORD cbTransferred,LPWSAOVERLAPPED lpOverlapped,DWORD dwFlags);
-int sendto(SOCKET s,const char *buf,int len,int flags,const struct sockaddr *to,int tolen);
-int closesocket(SOCKET s);
-int bind(SOCKET s,const struct sockaddr *name,int namelen);
-int WSACleanup(void);
-int WSAStartup(WORD wVersionRequested,LPWSADATA lpWSAData);
-int WSAGetLastError(void);
-int WSARecvFrom(SOCKET s,LPWSABUF lpBuffers,DWORD dwBufferCount,LPDWORD lpNumberOfBytesRecvd,LPDWORD lpFlags,struct sockaddr *lpFrom,LPINT lpFromlen,LPWSAOVERLAPPED lpOverlapped,LPWSAOVERLAPPED_COMPLETION_ROUTINE lpCompletionRoutine);
-unsigned long inet_addr(const char *cp);
-unsigned long htonl(unsigned long hostlong);
-unsigned short htons(unsigned short hostshort);
-unsigned long ntohl(unsigned long netlong);
-unsigned short ntohs(unsigned short netshort);
-#define socklen_t size_t
-#define sleep _sleep
+#include <winsock2.h>
+#include <windows.h>
+#include <ws2tcpip.h>
+
+// Type required by some unused function...
+typedef struct tagBITMAPINFOHEADER {
+  DWORD biSize;
+  LONG  biWidth;
+  LONG  biHeight;
+  WORD  biPlanes;
+  WORD  biBitCount;
+  DWORD biCompression;
+  DWORD biSizeImage;
+  LONG  biXPelsPerMeter;
+  LONG  biYPelsPerMeter;
+  DWORD biClrUsed;
+  DWORD biClrImportant;
+} BITMAPINFOHEADER, *PBITMAPINFOHEADER;
+
+#include <objbase.h>
+#include <mmreg.h>
+#include <mmsystem.h>
+
+// Some required types defined for MSVC/TinyC compiler
+#if defined(_MSC_VER) || defined(__TINYC__)
+    #include "propidl.h"
+#endif
+#endif
