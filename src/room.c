@@ -1,4 +1,3 @@
-#pragma once
 #include "engine.h"
 #include "room.h"
 
