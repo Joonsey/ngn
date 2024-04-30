@@ -39,23 +39,22 @@ void player_init(Engine* engine, GameData* data)
 			LoadTexture("resources/textures/palette-1x.png")
 			);
 
-	Room* players_start_room = data->rooms[0];
-	Vector2 start_pos = center_room_position(*players_start_room);
+	Room players_start_room = data->rooms[0];
+	Vector2 start_pos = center_room_position(players_start_room);
 	data->player.position = start_pos;
-	data->player_last_visited_room = players_start_room;
+	data->player_last_visited_room = &players_start_room;
 	data->player_inside_room = true;
 }
 
 void add_room_from_prefab(int prefab_id, Engine* engine, GameData* data)
 {
-	data->rooms[data->room_count] = malloc(sizeof(Room));
-	memcpy(data->rooms[data->room_count], &engine->room_map[prefab_id], sizeof(Room));
+	memcpy(&data->rooms[data->room_count], &engine->room_map[prefab_id], sizeof(Room));
 
 	data->room_count++;
 	if (data->room_count >= data->room_capacity)
 	{
 		data->room_capacity = data->room_capacity * 2;
-		data->rooms = realloc(data->rooms, sizeof(Room*) * data->room_capacity);
+		data->rooms = realloc(data->rooms, sizeof(Room) * data->room_capacity);
 	}
 }
 
@@ -65,7 +64,7 @@ void create_collision_maps(GameData* data)
 	for(i = 0; i < data->room_count; i++)
 	{
 		int number_of_walls = 0;
-		Room* room = data->rooms[i];
+		Room* room = &data->rooms[i];
 		//NOT SHRINKING TO SIZE OF LIST RIGHT NOW
 		room->walls = malloc(sizeof(Rectangle) * room->height * room->width);
 
@@ -85,11 +84,11 @@ void create_collision_maps(GameData* data)
 bool check_wall_collision(Entity* entity, GameData* data)
 {
 	for(int i = 0; i < data->room_count; i++)
-		for(int an = 0; an < data->rooms[i]->no_of_walls; an++)
+		for(int an = 0; an < data->rooms[i].no_of_walls; an++)
 		{
-			Rectangle wall = data->rooms[i]->walls[an];
-			wall.x += data->rooms[i]->position.x;
-			wall.y += data->rooms[i]->position.y;
+			Rectangle wall = data->rooms[i].walls[an];
+			wall.x += data->rooms[i].position.x;
+			wall.y += data->rooms[i].position.y;
 			bool collision = CheckCollisionRecs((Rectangle){entity->position.x, entity->position.y, TILE_SIZE, TILE_SIZE}, wall);
 			if(collision) return true;
 		}
@@ -117,7 +116,7 @@ void engine_init(Engine* engine, GameData* data)
 
 
 	//offset position for second room for debug purposes
-	data->rooms[1]->position = (Vector2){9 * TILE_SIZE, 0};
+	data->rooms[1].position = (Vector2){9 * TILE_SIZE, 0};
 
 	player_init(engine, data);
 
@@ -145,14 +144,14 @@ void engine_draw_first_pass(Engine* engine, GameData* data)
 
 	for (i = 0; i < data->room_count; i++)
 	{
-		Room* current_room = data->rooms[i];
+		Room current_room = data->rooms[i];
 
-		for (y = 0; y < current_room->height; y++)
-			for(x = 0; x < current_room->width; x++)
+		for (y = 0; y < current_room.height; y++)
+			for(x = 0; x < current_room.width; x++)
 			{
-				Tile tile = current_room->tiles[y][x];
+				Tile tile = current_room.tiles[y][x];
 				Rectangle source_rect = {tile.type * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE};
-				Vector2 tile_position = {x * TILE_SIZE + current_room->position.x, y * TILE_SIZE + current_room->position.y};
+				Vector2 tile_position = {x * TILE_SIZE + current_room.position.x, y * TILE_SIZE + current_room.position.y};
 				Vector2 tile_position_offset_camera = Vector2Subtract(tile_position, data->camera_offset);
 
 				DrawTextureRec(engine->texture_map, source_rect, tile_position_offset_camera, WHITE);
@@ -162,11 +161,11 @@ void engine_draw_first_pass(Engine* engine, GameData* data)
 	//move into function(?)
 	if(engine->settings.wall_hitbox)
 		for(i = 0; i < data->room_count; i++)
-			for(int tile = 0; tile < data->rooms[i]->no_of_walls; tile++)
+			for(int tile = 0; tile < data->rooms[i].no_of_walls; tile++)
 			{
-				Rectangle wall = data->rooms[i]->walls[tile];
-				wall.x += data->rooms[i]->position.x - data->camera_offset.x;
-				wall.y += data->rooms[i]->position.y - data->camera_offset.y;
+				Rectangle wall = data->rooms[i].walls[tile];
+				wall.x += data->rooms[i].position.x - data->camera_offset.x;
+				wall.y += data->rooms[i].position.y - data->camera_offset.y;
 				DrawRectangleRec(wall, RED);
 			}
 
@@ -264,13 +263,13 @@ void engine_update(Engine* engine, GameData* data)
 
 	for(int i = 0; i < data->room_count; i++)
 	{
-		Rectangle room = {data->rooms[i]->position.x, data->rooms[i]->position.y, data->rooms[i]->width * TILE_SIZE, data->rooms[i]->height * TILE_SIZE};
+		Rectangle room = {data->rooms[i].position.x, data->rooms[i].position.y, data->rooms[i].width * TILE_SIZE, data->rooms[i].height * TILE_SIZE};
 		Rectangle player = {data->player.position.x, data->player.position.y, TILE_SIZE, TILE_SIZE};
 		bool collision = CheckCollisionRecs(room, player);
 		if(collision)
 		{
 			data->player_inside_room = true;
-			data->player_last_visited_room = data->rooms[i];
+			data->player_last_visited_room = &data->rooms[i];
 		}
 	}
 
@@ -302,6 +301,6 @@ void engine_update(Engine* engine, GameData* data)
 void engine_exit(Engine* engine, GameData* data)
 {
 	for (int i = 0; i < data->room_count; i++)
-		free_room(data->rooms[i]);
+		free_room(&data->rooms[i]);
 }
 

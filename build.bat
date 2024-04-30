@@ -1,4 +1,4 @@
 @echo off
 if not exist build mkdir build
-gcc src\static.c -o build\ngn -lraylib -lm -lgdi32 -lwinmm -g src\engine.c src\room.c
+gcc src/*.c -o build\ngn -lraylib -lm -lgdi32 -lwinmm -lpthread -g  -lws2_32
 exit /b

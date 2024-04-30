@@ -49,7 +49,7 @@ typedef struct Engine {
 typedef struct GameData {
 	Entity player;
 	char* debug_text;
-	Room** rooms;
+	Room* rooms;
 	int room_count;
 	int room_capacity;
 	Vector2 camera_offset;
@@ -57,22 +57,22 @@ typedef struct GameData {
 	Room* player_last_visited_room;
 } GameData;
 
-#define LIST_OF_HOOKS \
-	HOOK(engine_init) \
-	HOOK(engine_exit) \
-	HOOK(engine_update) \
-	HOOK(engine_render) \
-
-typedef void*(*engine_init_t)(Engine*, GameData*);
-typedef void*(*engine_exit_t)(Engine*, GameData*);
-typedef void*(*engine_update_t)(Engine*, GameData*);
-typedef void*(*engine_render_t)(Engine*, GameData*);
+void engine_init(Engine*, GameData*);
+void engine_exit(Engine*, GameData*);
+void engine_update(Engine*, GameData*);
+void engine_render(Engine*, GameData*);
 
 Entity make_player(Texture player_texture, Texture UV_texture);
 
 
 void player_init(Engine* engine, GameData* data);
 void draw_entity(Entity* entity, Shader uv_shader, Vector2 camera_offset);
+
+void initiate_room_prefabs(Engine *engine, const char* dir_path);
+void add_room_from_prefab(int prefab_id, Engine* engine, GameData* data);
+
+bool check_wall_collision(Entity* entity, GameData* data);
+void create_collision_maps(GameData* data);
 
 // pre-processing render
 // UV mapping, paralax rendering etc.
