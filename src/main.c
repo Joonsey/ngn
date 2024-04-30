@@ -2,7 +2,7 @@
 #include "network.h"
 
 #define MAX_CLIENTS 2
-#define DEFAULT_SERVER_IP "127.0.0.1"
+#define DEFAULT_SERVER_IP "84.215.24.251"
 #define DEFAULT_SERVER_PORT 8888
 #define BUFFER_SIZE 1024
 
@@ -16,12 +16,11 @@ int main(int argc, char *argv[]) {
             // If the option is provided, check if the server IP address is specified
             if (i + 1 < argc) {
                 server_ip = argv[i + 1];
-                break;
             } else {
 				printf("No server ip was passed, using default loopback interface\n");
             }
 			RunServerArguments args;
-			args.server_ip = server_ip;
+			args.server_ip = "0.0.0.0";
 			args.server_port = server_port;
 			run_server(&args);
 			return 0;
@@ -29,7 +28,7 @@ int main(int argc, char *argv[]) {
 		else if (strcmp(argv[i], "--local") == 0) {
 			pthread_t server_thread;
 			RunServerArguments args;
-			args.server_ip = DEFAULT_SERVER_IP;
+			args.server_ip = "127.0.0.1";
 			args.server_port = DEFAULT_SERVER_PORT;
 			if (pthread_create(&server_thread, NULL, run_server, (void*)&args) != 0)
 			{
@@ -42,6 +41,15 @@ int main(int argc, char *argv[]) {
 				sleep(1);
 			}
         }
+		else if (strcmp(argv[i], "--join") == 0) {
+            if (i + 1 < argc) {
+                server_ip = argv[i + 1];
+                break;
+            } else {
+				printf("No server ip was passed, please provide valid ip address\n");
+				exit(1);
+            }
+		}
     }
 	ClientData client;
 	RunClientArguments args;
@@ -59,6 +67,7 @@ int main(int argc, char *argv[]) {
 	client.data = &data;
 	client.engine = &engine;
 	initiate_room_prefabs(&engine, "resources/rooms");
+	printf("connecting to %s at port %d\n", server_ip, server_port);
 
 	if (pthread_create(&client.thread, NULL, run_client, (void*)&args) != 0)
 	{

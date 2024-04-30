@@ -16,8 +16,6 @@
 #include "engine.h"
 
 #define MAX_CLIENTS 2
-#define DEFAULT_SERVER_IP "127.0.0.1"
-#define DEFAULT_SERVER_PORT 8888
 #define BUFFER_SIZE 1024
 
 
@@ -316,8 +314,12 @@ void* run_server(void* arg)
 	initiate_room_prefabs(&engine, "resources/rooms");
 	add_room_from_prefab(1, &engine, &data);
 	add_room_from_prefab(2, &engine, &data);
+	add_room_from_prefab(2, &engine, &data);
+	add_room_from_prefab(1, &engine, &data);
 
 	data.rooms[1].position = (Vector2){ (float)data.rooms[0].width * TILE_SIZE + TILE_SIZE, 0 };
+	data.rooms[2].position = (Vector2){ (float)data.rooms[1].width * TILE_SIZE + TILE_SIZE, data.rooms[0].height * TILE_SIZE + TILE_SIZE };
+	data.rooms[3].position = (Vector2){ -(float)data.rooms[1].width * TILE_SIZE + TILE_SIZE, data.rooms[0].height * TILE_SIZE + TILE_SIZE };
 
 	create_collision_maps(&data);
 
@@ -328,7 +330,7 @@ void* run_server(void* arg)
         exit(EXIT_FAILURE);
     }
 
-    printf("UDP server started on port %d\n", server_port);
+    printf("UDP server started on ip %s and port %d\n", server_ip, server_port);
 
     // Initialize array to store client information
     ConnectedClient clients[MAX_CLIENTS];
