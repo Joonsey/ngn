@@ -1,4 +1,4 @@
 @echo off
 if not exist build mkdir build
-for %f in (src\*.c) do gcc %f -o build\ngn -lraylib -lm -lgdi32 -lwinmm -g
+gcc src/*.c -o build\ngn -lraylib -lm -lgdi32 -lwinmm -lpthread -g  -lws2_32
 exit /b

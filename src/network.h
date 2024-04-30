@@ -1,5 +1,15 @@
+#ifdef _WIN32
+  #include "winimports.h"
+#else
+  #include <arpa/inet.h>
+  #include <sys/socket.h>
+  #include <unistd.h>
+  #define int_cast
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <string.h>
 #include <pthread.h>
 
@@ -10,23 +20,38 @@
 #define DEFAULT_SERVER_PORT 8888
 #define BUFFER_SIZE 1024
 
-#ifdef _WIN32
-  #include <winsock2.h>
-  #define closesocket closesocket
-  #define SOCKET SOCKET
-  #define INVALID_SOCKET SOCKET_ERROR
-  #define sendto WSASendTo
-  #define recvfrom WSARecvFrom
-  #define int_cast (int)
-#else
-  #include <arpa/inet.h>
-  #include <sys/socket.h>
-  #include <unistd.h>
-  #define sendto sendto
-  #define recvfrom recvfrom
-  #define int_cast
-#endif
 
+int send_to(int sockfd, const void *buf, size_t len, int flags, const struct sockaddr *addr, socklen_t addrlen) {
+#ifdef _WIN32
+	return sendto(sockfd, buf, len, flags, (const struct sockaddr *)addr, addrlen);
+	// WSABUF wsaBuf;
+	// wsaBuf.len = len;
+	// wsaBuf.buf = (CHAR *)buf; // Cast to match WSABUF definition
+
+	// DWORD bytes_sent;
+	// return sendto(sockfd, &wsaBuf, len, &bytes_sent, flags, addr, addrlen, NULL, NULL);
+#else
+	return sendto(sockfd, buf, len, flags, (const struct sockaddr *)addr, addrlen);
+#endif
+}
+
+int recv_from(int sockfd, void *buf, size_t len, int flags, struct sockaddr *addr, socklen_t *addrlen) {
+#ifdef _WIN32
+	WSABUF wsaBuf;
+	wsaBuf.len = len;
+	wsaBuf.buf = (CHAR *)buf; // Cast to match WSABUF definition
+
+	DWORD bytesRecv;
+	int result = WSARecvFrom(sockfd, &wsaBuf, 1, &bytesRecv, &flags, addr, addrlen, NULL, NULL);
+	if (result == 0)
+	{
+		return 0;
+	}
+	return bytesRecv;
+#else
+	return recvfrom(sockfd, buf, len, flags, addr, addrlen);
+#endif
+}
 
 // Define the packet structure
 typedef enum PacketType {
@@ -246,7 +271,7 @@ void send_map_data_to_client(ConnectedClient* client, GameData* data) {
 		memcpy(packet.data, data->rooms + chunk_offset, chunk_length);
 
 		size_t serialized_size = serialize_packet(&packet, send_buffer, sizeof(send_buffer));
-		sendto(client->sockfd, send_buffer, serialized_size, 0, (struct sockaddr *)&client->address, sizeof(client->address));
+		send_to(client->sockfd, send_buffer, serialized_size, 0, (struct sockaddr *)&client->address, sizeof(client->address));
 
 		if (packet.data != NULL) free(packet.data); // Free allocated memory for data
 	}
@@ -326,7 +351,7 @@ void* run_server(void* arg)
 		// NOTE: this is fixed now but keeping the note, and keeping it as it is!
 		// it was because we serialized the packet in serialize_packet in a different order than the structure is declared.
 
-        int bytes_received = recvfrom(sockfd, receive_buffer, BUFFER_SIZE, 0, (struct sockaddr *)&client_addr, &addr_len);
+        int bytes_received = recv_from(sockfd, receive_buffer, BUFFER_SIZE, 0, (struct sockaddr *)&client_addr, &addr_len);
         if (bytes_received == -1) {
             perror("recvfrom failed");
             exit(EXIT_FAILURE);
@@ -358,7 +383,7 @@ void* run_server(void* arg)
 				full_response_packet.data_length = 6;
 				full_response_packet.data = "Full";
 				serialize_packet(&full_response_packet, send_buffer, sizeof(Packet));
-				if (sendto(sockfd, send_buffer, bytes_received, 0, (struct sockaddr *)&client_addr, addr_len) == -1) {
+				if (send_to(sockfd, send_buffer, bytes_received, 0, (struct sockaddr *)&client_addr, addr_len) == -1) {
 					perror("error sending");
 					exit(EXIT_FAILURE);
 				}
@@ -415,7 +440,7 @@ void* run_client(void* arg)
 	WSADATA wsa_data;
 	if (WSAStartup(MAKEWORD(2, 2), &wsa_data) != 0) {
 		fprintf(stderr, "WSAStartup failed with error: %d\n", WSAGetLastError());
-		return 1;
+		return;
 	}
 #endif
 
@@ -442,14 +467,14 @@ void* run_client(void* arg)
     size_t send_buffer_size = serialize_packet(&my_packet, send_buffer, sizeof(send_buffer));
 
     // Send the packet to the server
-    if (sendto(sockfd, send_buffer, send_buffer_size, 0, (struct sockaddr *)&server_addr, addr_len) == -1) {
+    if (send_to(sockfd, send_buffer, send_buffer_size, 0, (struct sockaddr *)&server_addr, addr_len) == -1) {
         perror("sendto failed");
         exit(EXIT_FAILURE);
     }
 
 	while (1){
 		// Receive response from the server
-		int bytes_received = recvfrom(sockfd, buffer, BUFFER_SIZE, 0, (struct sockaddr *)&server_addr, &addr_len);
+		int bytes_received = recv_from(sockfd, buffer, BUFFER_SIZE, 0, (struct sockaddr *)&server_addr, &addr_len);
 		if (bytes_received == -1) {
 			perror("recvfrom failed");
 			exit(EXIT_FAILURE);
