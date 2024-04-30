@@ -1,9 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 #include <pthread.h>
-#include <arpa/inet.h>
 
 #include "engine.h"
 
@@ -12,8 +10,26 @@
 #define DEFAULT_SERVER_PORT 8888
 #define BUFFER_SIZE 1024
 
+#ifdef _WIN32
+  #include <winsock2.h>
+  #define closesocket closesocket
+  #define SOCKET SOCKET
+  #define INVALID_SOCKET SOCKET_ERROR
+  #define sendto WSASendTo
+  #define recvfrom WSARecvFrom
+  #define int_cast (int)
+#else
+  #include <arpa/inet.h>
+  #include <sys/socket.h>
+  #include <unistd.h>
+  #define sendto sendto
+  #define recvfrom recvfrom
+  #define int_cast
+#endif
+
+
 // Define the packet structure
-typedef enum PacketType : u_int16_t {
+typedef enum PacketType {
 	SERVER_FULL,
 	GREET,
 	MAP_DATA,
@@ -22,7 +38,7 @@ typedef enum PacketType : u_int16_t {
 
 typedef struct {
     uint32_t id;
-	PacketType type;
+	uint16_t type;
     uint16_t data_length;
 
 	// information regarding fragmented packets
@@ -94,20 +110,23 @@ size_t serialize_packet(const Packet* packet, uint8_t* buffer, size_t buffer_siz
     size_t offset = 0;
 
     // Ensure buffer is large enough to hold the serialized data
-    if (buffer_size < sizeof(uint32_t) + sizeof(uint16_t) + sizeof(PacketType) + packet->data_length) {
+    if (buffer_size < sizeof(uint32_t) + sizeof(uint16_t) + sizeof(uint16_t) + packet->data_length) {
         return 0; // Not enough space
     }
 
     // Serialize packet_id
-    memcpy(buffer + offset, &(packet->id), sizeof(uint32_t));
+	uint32_t id = htonl(packet->id);
+    memcpy(buffer + offset, &id, sizeof(uint32_t));
     offset += sizeof(uint32_t);
 
     // Serialize type
-    memcpy(buffer + offset, &(packet->type), sizeof(PacketType));
-    offset += sizeof(PacketType);
+	uint16_t type = htons(packet->type);
+    memcpy(buffer + offset, &type, sizeof(uint16_t));
+    offset += sizeof(uint16_t);
 
     // Serialize data_length
-    memcpy(buffer + offset, &(packet->data_length), sizeof(uint16_t));
+	uint16_t data_length = htons(packet->data_length);
+    memcpy(buffer + offset, &data_length, sizeof(uint16_t));
     offset += sizeof(uint16_t);
 
     // Serialize is_fragmented
@@ -115,11 +134,13 @@ size_t serialize_packet(const Packet* packet, uint8_t* buffer, size_t buffer_siz
     offset += sizeof(bool);
 
     // Serialize fragment_id
-    memcpy(buffer + offset, &(packet->fragment_id), sizeof(uint16_t));
+	uint16_t fragment_id = htons(packet->fragment_id);
+    memcpy(buffer + offset, &fragment_id, sizeof(uint16_t));
     offset += sizeof(uint16_t);
 
     // Serialize total_fragments
-    memcpy(buffer + offset, &(packet->total_fragments), sizeof(uint16_t));
+	uint16_t total_fragments = htons(packet->total_fragments);
+    memcpy(buffer + offset, &total_fragments, sizeof(uint16_t));
     offset += sizeof(uint16_t);
 
 	switch (packet->type)
@@ -149,35 +170,37 @@ size_t serialize_packet(const Packet* packet, uint8_t* buffer, size_t buffer_siz
 void deserialize_packet(const uint8_t* buffer, size_t buffer_size, Packet* packet) {
     size_t offset = 0;
 
-    // Deserialize packet_id
-    memcpy(&(packet->id), buffer + offset, sizeof(uint32_t));
-    offset += sizeof(uint32_t);
+	// Deserialize packet_id with conversion (assuming it's the first element)
+	packet->id = ntohl(*(uint32_t*)(buffer + offset));
+	offset += sizeof(uint32_t);
 
-    // Serialize type
-    memcpy(&(packet->type), buffer + offset, sizeof(PacketType));
-    offset += sizeof(PacketType);
+	// Deserialize type with conversion
+	packet->type = ntohs(*(uint16_t*)(buffer + offset));
+	offset += sizeof(uint16_t);
 
-    // Deserialize data_length
-    memcpy(&(packet->data_length), buffer + offset, sizeof(uint16_t));
-    offset += sizeof(uint16_t);
+	// Deserialize data_length with conversion (assuming data_length is uint16_t)
+	packet->data_length = ntohs(*(uint16_t*)(buffer + offset));
+	offset += sizeof(uint16_t);
 
-    // Deserialize is_fragmented
-    memcpy(&(packet->is_fragmented), buffer + offset,sizeof(bool));
-    offset += sizeof(bool);
+	// Deserialize is_fragmented
+	memcpy(&(packet->is_fragmented), buffer + offset, sizeof(bool));
+	offset += sizeof(bool);
 
-    // Deserialize fragment_id
-    memcpy(&(packet->fragment_id), buffer + offset, sizeof(uint16_t));
-    offset += sizeof(uint16_t);
+	// Deserialize fragment_id with conversion
+	packet->fragment_id = ntohs(*(uint16_t*)(buffer + offset));
+	offset += sizeof(uint16_t);
 
-    // Deserialize total_fragments
-    memcpy(&(packet->total_fragments), buffer + offset, sizeof(uint16_t));
-    offset += sizeof(uint16_t);
+	// Deserialize total_fragments with conversion
+	packet->total_fragments = ntohs(*(uint16_t*)(buffer + offset));
+	offset += sizeof(uint16_t);
 
-    // Allocate memory for data
-    packet->data = (char*)malloc(packet->data_length);
+	// Allocate memory for data (consider fixed buffer or alternative approach)
+	packet->data = (char*)malloc(packet->data_length);
 
-    // Deserialize data
-    memcpy(packet->data, buffer + offset, packet->data_length);
+	// Deserialize data with byte order conversion (back to host byte order)
+	memcpy(packet->data, buffer + offset, packet->data_length);
+	offset += buffer_size;
+
 
 	switch (packet->type)
 	{
@@ -237,6 +260,14 @@ void* run_server(void* arg)
     int sockfd;
     struct sockaddr_in server_addr, client_addr;
     socklen_t addr_len = sizeof(client_addr);
+
+#ifdef _WIN32
+	WSADATA wsa_data;
+	if (WSAStartup(MAKEWORD(2, 2), &wsa_data) != 0) {
+		fprintf(stderr, "WSAStartup failed with error: %d\n", WSAGetLastError());
+		return 1;
+	}
+#endif
 
     // Create UDP socket
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1) {
@@ -356,7 +387,12 @@ void* run_server(void* arg)
     }
 
     // Close the socket
-    close(sockfd);
+#ifdef _WIN32
+	closesocket(sockfd);
+	WSACleanup();
+#else
+	close(sockfd);
+#endif
 
 }
 
@@ -374,6 +410,14 @@ void* run_client(void* arg)
     char buffer[BUFFER_SIZE];
 
 	int room_address_offset;
+
+#ifdef _WIN32
+	WSADATA wsa_data;
+	if (WSAStartup(MAKEWORD(2, 2), &wsa_data) != 0) {
+		fprintf(stderr, "WSAStartup failed with error: %d\n", WSAGetLastError());
+		return 1;
+	}
+#endif
 
     // Create UDP socket
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1) {
@@ -451,5 +495,10 @@ void* run_client(void* arg)
 		// Clean up
 		if (response_packet.data != NULL) free(response_packet.data);
 	}
+#ifdef _WIN32
+	closesocket(sockfd);
+	WSACleanup();
+#else
 	close(sockfd);
+#endif
 }
