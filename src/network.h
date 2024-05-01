@@ -1,22 +1,5 @@
-#ifdef _WIN32
-  #include "winimports.h"
-#else
-  #include <arpa/inet.h>
-  #include <sys/socket.h>
-  #include <unistd.h>
-  #define int_cast
-#endif
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdint.h>
-#include <string.h>
-#include <pthread.h>
-
 #include "engine.h"
 
-#define MAX_CLIENTS 2
-#define BUFFER_SIZE 1024
 
 char* get_ipv4_address(struct sockaddr_in* sockaddr) {
   char ip_address[INET_ADDRSTRLEN]; // Buffer to store IPv4 string representation
@@ -64,60 +47,10 @@ int recv_from(int sockfd, void *buf, size_t len, int flags, struct sockaddr *add
 #endif
 }
 
-// Define the packet structure
-typedef enum PacketType {
-	SERVER_FULL,
-	GREET,
-	DISCONNECT,
-	MAP_DATA,
-	POSITION_UPDATE
-} PacketType;
-
-typedef struct {
-    uint32_t id;
-	uint16_t type;
-    uint16_t data_length;
-
-	// information regarding fragmented packets
-	bool is_fragmented;
-    uint16_t fragment_id;
-    uint16_t total_fragments;
-
-	union {
-		char* data; // dump
-		char greet_data[6];
-		Vector2 position;
-	};
-} Packet;
-
-typedef struct {
-	Engine* engine;
-	GameData* data;
-	pthread_t thread;
-	int *sock_fd;
-	struct sockaddr_in *server_addr;
-} ClientData;
-
-typedef struct {
-	char *server_ip;
-	int server_port;
-	bool setup_complete;
-} RunServerArguments;
-
-typedef struct {
-	char *server_ip;
-	int server_port;
-	ClientData *client_data;
-} RunClientArguments;
-
-typedef struct {
-    struct sockaddr_in address;
-    int sockfd;
-} ConnectedClient;
-
 
 const int safety_margin = 10;
 int chunk_size = BUFFER_SIZE - sizeof(Packet) - safety_margin;
+
 
 void build_tiles_and_walls(Engine *engine, GameData* data)
 {
@@ -198,6 +131,9 @@ size_t serialize_packet(const Packet* packet, uint8_t* buffer, size_t buffer_siz
 			memcpy(buffer + offset, packet->data, BUFFER_SIZE - offset);
 			offset += buffer_size;
 			break;
+		case CLIENT_POSITION_RECIEVE:
+			memcpy(buffer + offset, &packet->player_positions, sizeof(packet->player_positions));
+			offset += sizeof(packet->player_positions);
 		default: break;
 	}
 
@@ -233,14 +169,6 @@ void deserialize_packet(const uint8_t* buffer, size_t buffer_size, Packet* packe
 	packet->total_fragments = ntohs(*(uint16_t*)(buffer + offset));
 	offset += sizeof(uint16_t);
 
-	// Allocate memory for data (consider fixed buffer or alternative approach)
-	packet->data = (char*)malloc(packet->data_length);
-
-	// Deserialize data with byte order conversion (back to host byte order)
-	memcpy(packet->data, buffer + offset, packet->data_length);
-	offset += buffer_size;
-
-
 	switch (packet->type)
 	{
 		case GREET:
@@ -253,7 +181,18 @@ void deserialize_packet(const uint8_t* buffer, size_t buffer_size, Packet* packe
 			memcpy(&packet->position, buffer + offset, sizeof(packet->position));
 			offset += sizeof(packet->position);
 			break;
-		default: break;
+		case CLIENT_POSITION_RECIEVE:
+			memcpy(&packet->player_positions, buffer + offset, sizeof(packet->player_positions));
+			offset += sizeof(packet->player_positions);
+			break;
+		default: 
+			// Allocate memory for data (consider fixed buffer or alternative approach)
+			packet->data = (char*)malloc(packet->data_length);
+
+			// Deserialize data with byte order conversion (back to host byte order)
+			memcpy(packet->data, buffer + offset, packet->data_length);
+			offset += buffer_size;
+		break;
 	}
 }
 
@@ -289,6 +228,25 @@ void send_map_data_to_client(ConnectedClient* client, GameData* data) {
 
 		if (packet.data != NULL) free(packet.data); // Free allocated memory for data
 	}
+}
+
+void send_positions_response(ConnectedClient* recieving_client, ConnectedClient* clients)
+{
+	uint8_t send_buffer[BUFFER_SIZE] = {0};
+	Packet packet = {0};
+	packet.id = 0;
+	packet.type = CLIENT_POSITION_RECIEVE;
+
+	packet.data_length = sizeof(Vector2) * MAX_CLIENTS;
+
+	for (int i = 0; i < MAX_CLIENTS; i++)
+	{
+		ConnectedClient client = clients[i];
+		memcpy(packet.player_positions + i * sizeof(Vector2), &client.position, sizeof(Vector2));
+	}
+
+	size_t serialized_size = serialize_packet(&packet, send_buffer, sizeof(send_buffer));
+	send_to(recieving_client->sockfd, send_buffer, serialized_size, 0, (struct sockaddr *)&recieving_client->address, sizeof(recieving_client->address));
 }
 
 void* run_server(void* arg)
@@ -391,6 +349,8 @@ void* run_server(void* arg)
             if (num_clients < MAX_CLIENTS) {
                 clients[num_clients].address = client_addr;
                 clients[num_clients].sockfd = sockfd;
+				clients[num_clients].position = (Vector2){0, 0};
+
                 client_index = num_clients;
                 num_clients++;
                 printf("New client connected from %s:%d\n", get_ipv4_address(&client_addr), client_addr.sin_port);
@@ -417,6 +377,8 @@ void* run_server(void* arg)
 		switch (received_packet.type)
 		{
 			case POSITION_UPDATE:
+			 	clients[client_index].position = received_packet.position;
+				send_positions_response(&clients[client_index], clients);
 				printf("Received Data Position: %f, %f\n", received_packet.position.x, received_packet.position.y);
 				break;
 
@@ -458,7 +420,7 @@ void* run_client(void* arg)
 	RunClientArguments* args = (RunClientArguments*)arg;
 	char *server_ip = args->server_ip;
 	int server_port = 8888;
-	ClientData *client_data = args->client_data;
+	Engine *engine = args->engine;
 
 	int sockfd;
 
@@ -468,8 +430,8 @@ void* run_client(void* arg)
 
 	int room_address_offset;
 
-	client_data->sock_fd = &sockfd;
-	client_data->server_addr = &server_addr;
+	engine->network_client->sock_fd = &sockfd;
+	engine->network_client->server_addr = &server_addr;
 
 #ifdef _WIN32
 	WSADATA wsa_data;
@@ -537,22 +499,25 @@ void* run_client(void* arg)
 					if (fragment_id == 0) {
 						room_address_offset = 0;
 						//if (client_data->data->rooms != NULL) free(client_data->data->rooms);
-						client_data->data->room_count = room_count; // Update expected room count
-						client_data->data->room_capacity = client_data->data->room_count + 1;
-						client_data->data->rooms = (Room*)malloc(sizeof(Room)* client_data->data->room_capacity);
+						engine->network_client->game_data->room_count = room_count; // Update expected room count
+						engine->network_client->game_data->room_capacity = engine->network_client->game_data->room_count + 1;
+						engine->network_client->game_data->rooms = (Room*)malloc(sizeof(Room)* engine->network_client->game_data->room_capacity);
 					}
 
 					// Copy received fragment data directly into data.rooms
-					memcpy(client_data->data->rooms + room_address_offset, response_packet.data, response_packet.data_length);
+					memcpy(engine->network_client->game_data->rooms + room_address_offset, response_packet.data, response_packet.data_length);
 					room_address_offset += response_packet.data_length;
 
-					build_tiles_and_walls(client_data->engine, client_data->data);
+					build_tiles_and_walls(engine, engine->network_client->game_data);
 				}
+				break;
+			case CLIENT_POSITION_RECIEVE:
+				memcpy(engine->network_client->game_data->player_positions, &response_packet.player_positions, sizeof(response_packet.player_positions));
 				break;
 		}
 
 		// Clean up
-		if (response_packet.data != NULL) free(response_packet.data);
+		//if (response_packet.data != NULL) free(response_packet.data);
 	}
 #ifdef _WIN32
 	closesocket(sockfd);
