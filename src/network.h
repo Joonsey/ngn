@@ -18,6 +18,19 @@
 #define MAX_CLIENTS 2
 #define BUFFER_SIZE 1024
 
+char* get_ipv4_address(struct sockaddr_in* sockaddr) {
+  char ip_address[INET_ADDRSTRLEN]; // Buffer to store IPv4 string representation
+
+  const char* converted_ip = inet_ntop(AF_INET, &(sockaddr->sin_addr), ip_address, INET_ADDRSTRLEN);
+
+  if (converted_ip != NULL) {
+    return strdup(ip_address); // Allocate and return a copy of the string
+  } else {
+    perror("inet_ntop");
+    return NULL; // Indicate error (conversion failed)
+  }
+}
+
 
 int send_to(int sockfd, const void *buf, size_t len, int flags, const struct sockaddr *addr, socklen_t addrlen) {
 #ifdef _WIN32
@@ -55,6 +68,7 @@ int recv_from(int sockfd, void *buf, size_t len, int flags, struct sockaddr *add
 typedef enum PacketType {
 	SERVER_FULL,
 	GREET,
+	DISCONNECT,
 	MAP_DATA,
 	POSITION_UPDATE
 } PacketType;
@@ -80,6 +94,8 @@ typedef struct {
 	Engine* engine;
 	GameData* data;
 	pthread_t thread;
+	int *sock_fd;
+	struct sockaddr_in *server_addr;
 } ClientData;
 
 typedef struct {
@@ -377,7 +393,7 @@ void* run_server(void* arg)
                 clients[num_clients].sockfd = sockfd;
                 client_index = num_clients;
                 num_clients++;
-                printf("New client connected\n");
+                printf("New client connected from %s:%d\n", get_ipv4_address(&client_addr), client_addr.sin_port);
             } else {
 				Packet full_response_packet = {0};
 				full_response_packet.id = 201;
@@ -407,7 +423,21 @@ void* run_server(void* arg)
 			case GREET:
 				send_map_data_to_client(&clients[client_index], &data);
 				printf("sending map data\n");
+				break;
 
+			case DISCONNECT:
+			 	if (client_index < 0 || client_index >= num_clients)
+				{
+					printf("ERROR DISCONNECTING CLIENT: invalid client index %d", client_index);
+				}
+
+    			for (int i = client_index; i < num_clients - 1; i++)
+				{
+					clients[i] = clients[i + 1];
+				}
+				printf("client disconnected", client_index);
+				num_clients--;
+				break;
 		}
 
 		//if (received_packet.data != NULL) free(received_packet.data);
@@ -437,6 +467,9 @@ void* run_client(void* arg)
     char buffer[BUFFER_SIZE];
 
 	int room_address_offset;
+
+	client_data->sock_fd = &sockfd;
+	client_data->server_addr = &server_addr;
 
 #ifdef _WIN32
 	WSADATA wsa_data;
@@ -516,7 +549,6 @@ void* run_client(void* arg)
 					build_tiles_and_walls(client_data->engine, client_data->data);
 				}
 				break;
-				// ... handle other packet types ...
 		}
 
 		// Clean up
@@ -528,4 +560,14 @@ void* run_client(void* arg)
 #else
 	close(sockfd);
 #endif
+}
+
+void send_disconnect(ClientData client_data)
+{
+    Packet dc_packet = {0};
+	dc_packet.type = DISCONNECT;
+	dc_packet.id = 1;
+    uint8_t dc_send_buffer[BUFFER_SIZE];
+    size_t dc_send_buffer_size = serialize_packet(&dc_packet, dc_send_buffer, sizeof(dc_send_buffer));
+	send_to(*client_data.sock_fd, dc_send_buffer, dc_send_buffer_size  , 0, (struct sockaddr *)client_data.server_addr, sizeof(*client_data.server_addr));
 }

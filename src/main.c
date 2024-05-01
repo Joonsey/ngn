@@ -6,6 +6,14 @@
 #define DEFAULT_SERVER_PORT 8888
 #define BUFFER_SIZE 1024
 
+ClientData network_client = {0};
+
+void exit_hook()
+{
+	send_disconnect(network_client);
+	printf("sent disconnect signal\n");
+}
+
 int main(int argc, char *argv[]) {
     char *server_ip = DEFAULT_SERVER_IP;
     int server_port = DEFAULT_SERVER_PORT;
@@ -52,9 +60,8 @@ int main(int argc, char *argv[]) {
             }
 		}
     }
-	ClientData client;
 	RunClientArguments args;
-	args.client_data = &client;
+	args.client_data = &network_client;
 	args.server_ip = server_ip;
 	args.server_port = server_port;
 
@@ -65,16 +72,18 @@ int main(int argc, char *argv[]) {
 	data.room_capacity = INITIAL_ROOM_CAP;
 	data.room_count = 0;
 
-	client.data = &data;
-	client.engine = &engine;
+	network_client.data = &data;
+	network_client.engine = &engine;
 	initiate_room_prefabs(&engine, "resources/rooms");
 	printf("connecting to %s at port %d\n", server_ip, server_port);
 
-	if (pthread_create(&client.thread, NULL, run_client, (void*)&args) != 0)
+	if (pthread_create(&network_client.thread, NULL, run_client, (void*)&args) != 0)
 	{
 		printf("error creating client thread\n");
 		return 1;
 	}
+
+	atexit(exit_hook);
 
 	InitWindow(screen_width, screen_height, "ngn");
 	engine.render_target = LoadRenderTexture(render_width, render_height);
