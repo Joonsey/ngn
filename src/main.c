@@ -28,6 +28,7 @@ int main(int argc, char *argv[]) {
 		else if (strcmp(argv[i], "--local") == 0) {
 			pthread_t server_thread;
 			RunServerArguments args;
+			server_ip = "127.0.0.1";
 			args.server_ip = "127.0.0.1";
 			args.server_port = DEFAULT_SERVER_PORT;
 			if (pthread_create(&server_thread, NULL, run_server, (void*)&args) != 0)
