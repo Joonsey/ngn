@@ -31,6 +31,10 @@
 #define screen_width	800
 #define screen_height	450
 
+// PARTICLE INFO
+#define MAX_PARTICLES 256
+#define GRAVITY_CONST 3
+
 // RENDER DISPLAY
 #define render_width	240
 #define render_height	120
@@ -46,6 +50,29 @@
 #define GREET_MAX_LENGTH 6
 #define BUFFER_SIZE 1024
 #define PLAYER_NOT_CONNECTED_SYMBOL -1
+
+
+typedef enum ParticleType
+{
+	ASCENDING,
+	DESCENDING,
+	STANDARD,
+	FADING,
+} ParticleType;
+
+
+typedef struct Particle
+{
+	Vector3 position;
+	Vector3 velocity;
+	float lifetime;
+	Color color;
+	ParticleType type;
+	float width;
+	float height;
+
+}Particle;
+
 
 typedef struct Entity {
 	Vector2 position;
@@ -120,6 +147,8 @@ typedef struct GameData {
 	Room* player_last_visited_room;
 	Vector2 player_positions[MAX_CLIENTS];
 	PlayerConnectionInfo connected_players[MAX_CLIENTS];
+	int particle_count;
+	Particle particles[MAX_PARTICLES];
 } GameData;
 
 typedef struct {
@@ -138,6 +167,7 @@ typedef struct Engine {
 	Room room_map[255];
 	Texture2D texture_map;
 	ClientData* network_client;
+	float frame_time;
 } Engine;
 
 typedef struct {

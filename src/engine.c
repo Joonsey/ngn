@@ -183,6 +183,12 @@ void engine_draw_first_pass(Engine* engine, GameData* data)
 				DrawRectangleRec(wall, RED);
 			}
 
+
+	for (i = 0; i < data->particle_count; i++)
+	{
+		render_particle(engine, data, &data->particles[i]);
+	}
+
 	// do uv mapping
 	if (engine->settings.render_uv)
 	{
@@ -287,7 +293,15 @@ void update_player(Engine* engine, GameData* data)
 
 void engine_update(Engine* engine, GameData* data)
 {
+	engine->frame_time = GetFrameTime();
+
 	update_player(engine, data);
+
+	for (int i = 0; i < data->particle_count; i++)
+	{
+		update_particle(engine, &data->particles[i], engine->frame_time);
+	}
+	
 
 	Vector2 target_pos = data->player.position;
 
@@ -331,6 +345,19 @@ void engine_update(Engine* engine, GameData* data)
 	}
 
 	send_player_position(*engine->network_client);
+	if (IsKeyPressed(KEY_P))
+	{
+		Particle particle;
+		particle.width = 8;
+		particle.height = 8;
+		particle.lifetime = 2;
+		particle.color = BLUE;
+		particle.type = ASCENDING;
+		particle.velocity = (Vector3){0};
+		particle.position = (Vector3){data->player.position.x, data->player.position.y, 8};
+		data->particles[data->particle_count] = particle;
+		data->particle_count += 1;
+	}
 }
 
 void engine_exit(Engine* engine, GameData* data)
