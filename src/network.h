@@ -421,7 +421,7 @@ void* run_server(void* arg)
 
 				PlayerConnectionInfo info = {0};
 				info.client_index = client_index;
-				
+
 				args->all_players_connection_info[client_index] = info;
 				memcpy(info.name, received_packet.greet_data, sizeof(char)*GREET_MAX_LENGTH);
 
@@ -465,7 +465,7 @@ void* run_server(void* arg)
     			for (int i = client_index; i < num_clients - 1; i++)
 					clients[i] = clients[i + 1];
 
-				printf("client disconnected", client_index);
+				printf("client disconnected %d", client_index);
 				num_clients--;
 
 				// all affected clients will be distributed a new client_index / server_id
