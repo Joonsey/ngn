@@ -1,4 +1,5 @@
 #include "engine.h"
+#include "particle.h"
 
 void send_player_position(ClientData client_data)
 {

@@ -1,3 +1,4 @@
+#pragma once
 #include "engine.h"
 
 typedef enum ParticleType
