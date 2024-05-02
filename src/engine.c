@@ -195,6 +195,23 @@ void engine_draw_first_pass(Engine* engine, GameData* data)
 	{
 		draw_entity(&data->player, engine->uv_shader, data->camera_offset);
 	}
+
+	// draw other players
+	for (i = 0; i < MAX_CLIENTS; i++)
+	{
+		PlayerConnectionInfo player_connection_info = data->connected_players[i];
+
+		if (player_connection_info.client_index == PLAYER_NOT_CONNECTED_SYMBOL || player_connection_info.client_index == engine->network_client->my_server_id)
+		continue;
+
+		Vector2 player_position = data->player_positions[i];
+		Entity entity = {0};
+		entity.position = player_position;
+		entity.texture = data->player.texture;
+		entity.UV_texture = data->player.UV_texture;
+		draw_entity(&entity, engine->uv_shader, data->camera_offset);
+
+	}
 }
 
 // rendering render-display onto the window, scaling it up to correct size

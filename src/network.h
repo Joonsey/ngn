@@ -134,6 +134,22 @@ size_t serialize_packet(const Packet* packet, uint8_t* buffer, size_t buffer_siz
 		case CLIENT_POSITION_RECIEVE:
 			memcpy(buffer + offset, &packet->player_positions, sizeof(packet->player_positions));
 			offset += sizeof(packet->player_positions);
+			break;
+		case PLAYER_CONNECTION_INFO:
+			memcpy(buffer + offset, &packet->player_connection_info, sizeof(packet->player_connection_info));
+			offset += sizeof(packet->player_connection_info);
+			break;
+		case ALL_PLAYERS_CONNECTION_INFO:
+			for (int i = 0; i < MAX_CLIENTS; i++)
+			{
+				PlayerConnectionInfo temp = packet->all_players_connection_info[i];
+				if ( i != 0 && temp.client_index == 0)
+					temp.client_index = PLAYER_NOT_CONNECTED_SYMBOL;
+
+				memcpy(buffer + offset, &temp, sizeof(temp));
+				offset += sizeof(temp);
+			}
+			break;
 		default: break;
 	}
 
@@ -184,6 +200,17 @@ void deserialize_packet(const uint8_t* buffer, size_t buffer_size, Packet* packe
 		case CLIENT_POSITION_RECIEVE:
 			memcpy(&packet->player_positions, buffer + offset, sizeof(packet->player_positions));
 			offset += sizeof(packet->player_positions);
+			break;
+		case PLAYER_CONNECTION_INFO:
+			memcpy(&packet->player_connection_info, buffer + offset, sizeof(packet->player_connection_info));
+			offset += sizeof(packet->player_connection_info);
+			break;
+		case ALL_PLAYERS_CONNECTION_INFO:
+			for (int i = 0; i < MAX_CLIENTS; i++)
+			{
+				memcpy(&packet->all_players_connection_info[i], buffer + offset, sizeof(packet->all_players_connection_info[i]));
+				offset += sizeof(packet->all_players_connection_info[i]);
+			}
 			break;
 		default: 
 			// Allocate memory for data (consider fixed buffer or alternative approach)
@@ -242,11 +269,48 @@ void send_positions_response(ConnectedClient* recieving_client, ConnectedClient*
 	for (int i = 0; i < MAX_CLIENTS; i++)
 	{
 		ConnectedClient client = clients[i];
-		memcpy(packet.player_positions + i * sizeof(Vector2), &client.position, sizeof(Vector2));
+		Vector2 position = client.position;
+		memcpy(&packet.player_positions[i], &client.position, sizeof(Vector2));
 	}
 
 	size_t serialized_size = serialize_packet(&packet, send_buffer, sizeof(send_buffer));
 	send_to(recieving_client->sockfd, send_buffer, serialized_size, 0, (struct sockaddr *)&recieving_client->address, sizeof(recieving_client->address));
+}
+
+void send_connection_response(ConnectedClient* recieving_client, PlayerConnectionInfo player_connection_info)
+{
+	uint8_t send_buffer[BUFFER_SIZE] = {0};
+	Packet packet = {0};
+	packet.id = 0;
+	packet.type = PLAYER_CONNECTION_INFO;
+
+	packet.data_length = sizeof(PlayerConnectionInfo);
+	packet.player_connection_info = player_connection_info;
+
+
+	size_t serialized_size = serialize_packet(&packet, send_buffer, sizeof(send_buffer));
+	send_to(recieving_client->sockfd, send_buffer, serialized_size, 0, (struct sockaddr *)&recieving_client->address, sizeof(recieving_client->address));
+
+}
+
+void broadcast_connection_info(ConnectedClient* clients, PlayerConnectionInfo* player_connection_info, int num_clients)
+{
+	uint8_t send_buffer[BUFFER_SIZE] = {0};
+	Packet packet = {0};
+	packet.id = 0;
+	packet.type = ALL_PLAYERS_CONNECTION_INFO;
+
+	packet.data_length = sizeof(PlayerConnectionInfo);
+	memcpy(packet.all_players_connection_info, player_connection_info, sizeof(PlayerConnectionInfo) * MAX_CLIENTS);
+
+	size_t serialized_size = serialize_packet(&packet, send_buffer, sizeof(send_buffer));
+	
+	for (int i = 0; i < num_clients; i++)
+	{
+		ConnectedClient* recieving_client = &clients[i];
+		send_to(recieving_client->sockfd, send_buffer, serialized_size, 0, (struct sockaddr *)&recieving_client->address, sizeof(recieving_client->address));
+	}
+
 }
 
 void* run_server(void* arg)
@@ -354,6 +418,15 @@ void* run_server(void* arg)
                 client_index = num_clients;
                 num_clients++;
                 printf("New client connected from %s:%d\n", get_ipv4_address(&client_addr), client_addr.sin_port);
+
+				PlayerConnectionInfo info = {0};
+				info.client_index = client_index;
+				
+				args->all_players_connection_info[client_index] = info;
+				memcpy(info.name, received_packet.greet_data, sizeof(char)*GREET_MAX_LENGTH);
+
+				send_connection_response(&clients[client_index], info);
+				broadcast_connection_info(clients, args->all_players_connection_info, num_clients);
             } else {
 				Packet full_response_packet = {0};
 				full_response_packet.id = 201;
@@ -370,10 +443,6 @@ void* run_server(void* arg)
             }
         }
 
-        // Process received packet
-        printf("Received Packet ID: %u\n", received_packet.id);
-        printf("Received Data Length: %u\n", received_packet.data_length);
-        printf("Received Data Type: %u\n", received_packet.type);
 		switch (received_packet.type)
 		{
 			case POSITION_UPDATE:
@@ -389,16 +458,28 @@ void* run_server(void* arg)
 
 			case DISCONNECT:
 			 	if (client_index < 0 || client_index >= num_clients)
-				{
 					printf("ERROR DISCONNECTING CLIENT: invalid client index %d", client_index);
-				}
 
+				// removing client from client array
+				// and shifting all subsequent clients left
     			for (int i = client_index; i < num_clients - 1; i++)
-				{
 					clients[i] = clients[i + 1];
-				}
+
 				printf("client disconnected", client_index);
 				num_clients--;
+
+				// all affected clients will be distributed a new client_index / server_id
+    			for (int i = client_index; i < num_clients - 1; i++)
+				{
+					PlayerConnectionInfo info = {0};
+					info.client_index = i;
+					strcpy(info.name, data.connected_players[i].name);
+					args->all_players_connection_info[i] = info;
+					send_connection_response(&clients[i], info);
+				}
+
+				// after disconnecting all indexes should be refreshed for all clients
+				broadcast_connection_info(clients, args->all_players_connection_info, num_clients);
 				break;
 		}
 
@@ -514,6 +595,14 @@ void* run_client(void* arg)
 			case CLIENT_POSITION_RECIEVE:
 				memcpy(engine->network_client->game_data->player_positions, &response_packet.player_positions, sizeof(response_packet.player_positions));
 				break;
+			case PLAYER_CONNECTION_INFO:
+			 	engine->network_client->my_server_id = response_packet.player_connection_info.client_index;
+				strcpy(engine->network_client->my_server_name, response_packet.player_connection_info.name);
+				break;
+			case ALL_PLAYERS_CONNECTION_INFO:
+				memcpy(engine->network_client->game_data->connected_players, response_packet.all_players_connection_info, sizeof(response_packet.all_players_connection_info));
+				break;
+			default: break;
 		}
 
 		// Clean up

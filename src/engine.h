@@ -43,7 +43,9 @@
 
 // NETWORKING
 #define MAX_CLIENTS 4
+#define GREET_MAX_LENGTH 6
 #define BUFFER_SIZE 1024
+#define PLAYER_NOT_CONNECTED_SYMBOL -1
 
 typedef struct Entity {
 	Vector2 position;
@@ -51,10 +53,16 @@ typedef struct Entity {
 	Texture UV_texture;
 } Entity;
 
+typedef struct PlayerConnectionInfo {
+	char name[GREET_MAX_LENGTH];
+	float client_index;
+} PlayerConnectionInfo;
 // Define the packet structure
 typedef enum PacketType {
 	SERVER_FULL,
 	GREET,
+	PLAYER_CONNECTION_INFO,
+	ALL_PLAYERS_CONNECTION_INFO,
 	DISCONNECT,
 	MAP_DATA,
 	POSITION_UPDATE,
@@ -73,7 +81,9 @@ typedef struct {
 
 	union {
 		char* data; // dump
-		char greet_data[6];
+		PlayerConnectionInfo player_connection_info;
+		PlayerConnectionInfo all_players_connection_info[MAX_CLIENTS];
+		char greet_data[GREET_MAX_LENGTH];
 		Vector2 position;
 		Vector2 player_positions[MAX_CLIENTS];
 	};
@@ -83,12 +93,14 @@ typedef struct {
 	char *server_ip;
 	int server_port;
 	bool setup_complete;
+	PlayerConnectionInfo all_players_connection_info[MAX_CLIENTS];
 } RunServerArguments;
 
 typedef struct {
     struct sockaddr_in address;
     int sockfd;
 	Vector2 position;
+	char* name;
 } ConnectedClient;
 
 typedef struct EngineSettings {
@@ -106,7 +118,7 @@ typedef struct GameData {
 	bool player_inside_room;
 	Room* player_last_visited_room;
 	Vector2 player_positions[MAX_CLIENTS];
-	//char* current_players[MAX_CLIENTS];
+	PlayerConnectionInfo connected_players[MAX_CLIENTS];
 } GameData;
 
 typedef struct {
@@ -114,6 +126,8 @@ typedef struct {
 	int *sock_fd;
 	struct sockaddr_in *server_addr;
 	GameData* game_data;
+	float my_server_id;
+	char my_server_name[GREET_MAX_LENGTH];
 } ClientData;
 
 typedef struct Engine {
