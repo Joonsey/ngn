@@ -24,8 +24,9 @@
 #include <stdint.h>
 #include <pthread.h>
 
-#include "room.h"
-
+// ROOM INFO
+#define MAX_ROOM_HEIGHT 32
+#define MAX_ROOM_WIDTH  32
 
 // SCREEN RESOLUTION
 #define screen_width	800
@@ -135,6 +136,28 @@ typedef struct EngineSettings {
 	bool render_uv;
 	bool wall_hitbox;
 } EngineSettings;
+
+typedef enum {
+	EMPTY,
+	FLOOR,
+	WALL
+} TileType;
+
+typedef struct Tile {
+	TileType type;
+} Tile;
+
+typedef struct Room {
+	Vector2 position;
+	int id;
+	int width;
+	int height;
+	Tile** tiles;
+	struct Room** connected_rooms;
+	int num_connected_rooms;
+	Rectangle* walls;
+	int no_of_walls;
+} Room;
 
 typedef struct GameData {
 	Entity player;
