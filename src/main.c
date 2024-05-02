@@ -1,7 +1,6 @@
 #include "engine.h"
 #include "network.h"
 
-#define MAX_CLIENTS 2
 #define DEFAULT_SERVER_IP "84.215.24.251"
 #define DEFAULT_SERVER_PORT 8888
 #define BUFFER_SIZE 1024
