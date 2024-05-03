@@ -292,16 +292,16 @@ void update_player(Engine* engine, GameData* data)
 	collision = check_wall_collision(&data->player, data);
 	if(collision) data->player.position.y -= 2.0f;
 
-
-	if(Vector2Distance(start_pos, data->player.position) != 0)
-	{
-		Particle particle = {0};
-		initialize_particle(&particle, 8, 8, 2, BLUE,
-				Vector3Zero(),
-				(Vector3){data->player.position.x, data->player.position.y, 8});
-		set_particle_types(&particle, ASCENDING, FADING, SHRINKING, PARTICLE_NULL_TYPE);
-		add_particle(particle, data);
-	}
+	//quick debug/stress test
+	//if(Vector2Distance(start_pos, data->player.position) != 0)
+	//{
+	//	Particle particle = {0};
+	//	initialize_particle(&particle, 8, 8, 2, BLUE,
+	//			Vector3Zero(),
+	//			(Vector3){data->player.position.x, data->player.position.y, 8});
+	//	set_particle_types(&particle, ASCENDING, FADING, SHRINKING, PARTICLE_NULL_TYPE);
+	//	add_particle(particle, data);
+	//}
 
 }
 
