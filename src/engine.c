@@ -1,5 +1,18 @@
 #include "engine.h"
 
+void send_player_position(ClientData client_data)
+{
+    Packet position_packet = {0};
+	position_packet.type = POSITION_UPDATE;
+	position_packet.id = 1;
+	position_packet.position = client_data.game_data->player.position;
+	position_packet.data_length = sizeof(Vector2);
+
+    uint8_t pos_send_buffer[BUFFER_SIZE];
+    size_t pos_send_buffer_size = serialize_packet(&position_packet, pos_send_buffer, sizeof(pos_send_buffer));
+	send_to(*client_data.sock_fd, pos_send_buffer, pos_send_buffer_size  , 0, (struct sockaddr *)client_data.server_addr, sizeof(*client_data.server_addr));
+}
+
 void initiate_room_prefabs(Engine *engine, const char* dir_path)
 {
 	FilePathList fpl = LoadDirectoryFilesEx(dir_path, ".room", false);
@@ -182,6 +195,25 @@ void engine_draw_first_pass(Engine* engine, GameData* data)
 	{
 		draw_entity(&data->player, engine->uv_shader, data->camera_offset);
 	}
+
+	// draw other players
+	for (i = 0; i < MAX_CLIENTS; i++)
+	{
+		PlayerConnectionInfo player_connection_info = data->connected_players[i];
+
+		if (player_connection_info.client_index == PLAYER_NOT_CONNECTED_SYMBOL ||
+				player_connection_info.client_index == engine->network_client->my_server_id ||
+				!player_connection_info.connected)
+			continue;
+
+		Vector2 player_position = data->player_positions[i];
+		Entity entity = {0};
+		entity.position = player_position;
+		entity.texture = data->player.texture;
+		entity.UV_texture = data->player.UV_texture;
+		draw_entity(&entity, engine->uv_shader, data->camera_offset);
+
+	}
 }
 
 // rendering render-display onto the window, scaling it up to correct size
@@ -296,6 +328,8 @@ void engine_update(Engine* engine, GameData* data)
 		data->debug_text = "toggled wall hitboxes";
 		engine->settings.wall_hitbox = !engine->settings.wall_hitbox;
 	}
+
+	send_player_position(*engine->network_client);
 }
 
 void engine_exit(Engine* engine, GameData* data)

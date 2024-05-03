@@ -49,6 +49,7 @@ void free_room(Room* room)
 {
 	// because almost everything is heap allocated we have to clean it all up
 	if (!room) return;
+	/*
 	for (int i = 0; i < room->height; i++)
 	{
 		free(room->tiles[i]);
@@ -56,6 +57,7 @@ void free_room(Room* room)
 	free(room->tiles);
 	free(room->connected_rooms);
 	free(room);
+	*/
 }
 
 Room create_room_prefab(const char* filename)

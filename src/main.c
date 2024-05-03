@@ -1,7 +1,6 @@
 #include "engine.h"
 #include "network.h"
 
-#define MAX_CLIENTS 2
 #define DEFAULT_SERVER_IP "84.215.24.251"
 #define DEFAULT_SERVER_PORT 8888
 #define BUFFER_SIZE 1024
@@ -60,20 +59,24 @@ int main(int argc, char *argv[]) {
             }
 		}
     }
-	RunClientArguments args;
-	args.client_data = &network_client;
-	args.server_ip = server_ip;
-	args.server_port = server_port;
 
 	Engine engine = {0};
 	GameData data = {0};
+
+	RunClientArguments args;
+	args.engine = &engine;
+	args.server_ip = server_ip;
+	args.server_port = server_port;
+	args.should_close = false;
 
 	data.rooms = malloc(sizeof(Room**) * INITIAL_ROOM_CAP);
 	data.room_capacity = INITIAL_ROOM_CAP;
 	data.room_count = 0;
 
-	network_client.data = &data;
-	network_client.engine = &engine;
+	network_client.game_data = &data;
+
+	engine.network_client = &network_client;
+
 	initiate_room_prefabs(&engine, "resources/rooms");
 	printf("connecting to %s at port %d\n", server_ip, server_port);
 
@@ -102,6 +105,7 @@ int main(int argc, char *argv[]) {
 
 	}
 
+	args.should_close = true;
 	// De-Initialization
 	UnloadShader(engine.uv_shader);
 
