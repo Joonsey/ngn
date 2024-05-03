@@ -346,20 +346,28 @@ void engine_update(Engine* engine, GameData* data)
 	}
 
 	send_player_position(*engine->network_client);
+	
+	//put in funny function
 	if (IsKeyPressed(KEY_P))
 	{
-		Particle particle = {0};
-		particle.width = 8;
-		particle.height = 8;
-		particle.lifetime = 2;
-		particle.color = BLUE;
-		particle.types[0] = ASCENDING;
-		particle.types[1] = FADING;
-		particle.velocity = (Vector3){0};
-		particle.position = (Vector3){data->player.position.x, data->player.position.y, 8};
-		data->particles[data->particle_count] = particle;
-		data->particle_count += 1;
+		if(data->particle_count < MAX_PARTICLES)
+		{		
+			Particle particle = {0};
+			particle.width = 8;
+			particle.height = 8;
+			particle.lifetime = 2;
+			particle.color = BLUE;
+			particle.types[0] = ASCENDING;
+			particle.types[1] = FADING;
+			particle.velocity = (Vector3){0};
+			particle.position = (Vector3){data->player.position.x, data->player.position.y, 8};
+			data->particles[data->particle_count] = particle;
+			data->particle_count += 1;
+		}
 	}
+	
+	particles_cleanup(data);
+
 }
 
 void engine_exit(Engine* engine, GameData* data)

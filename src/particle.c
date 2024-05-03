@@ -45,3 +45,23 @@ void update_particle(Engine* engine, Particle* particle, float deltatime)
 
 	particle->position = Vector3Add(particle->position, Vector3Scale(particle->velocity, deltatime));
 }
+
+void particles_cleanup(GameData* data)
+{
+	int i;
+	int current_index = 0;
+
+	while (current_index < data->particle_count - 1)
+	{
+		if (data->particles[current_index].lifetime > 0)
+		{
+			current_index += 1;
+			continue;
+		}
+		//optimize "array-shifting"
+		memcpy(&data->particles[current_index], &data->particles[current_index+1], sizeof(Particle) * (data->particle_count - current_index - 1));
+	
+		data->particle_count -= 1;
+	}
+	
+}
