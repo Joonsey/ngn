@@ -67,6 +67,7 @@ int main(int argc, char *argv[]) {
 	args.engine = &engine;
 	args.server_ip = server_ip;
 	args.server_port = server_port;
+	args.should_close = false;
 
 	data.rooms = malloc(sizeof(Room**) * INITIAL_ROOM_CAP);
 	data.room_capacity = INITIAL_ROOM_CAP;
@@ -104,6 +105,7 @@ int main(int argc, char *argv[]) {
 
 	}
 
+	args.should_close = true;
 	// De-Initialization
 	UnloadShader(engine.uv_shader);
 

@@ -144,6 +144,7 @@ typedef struct {
 	char *server_ip;
 	int server_port;
 	Engine *engine;
+	bool should_close;
 } RunClientArguments;
 
 

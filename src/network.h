@@ -558,12 +558,18 @@ void* run_client(void* arg)
         exit(EXIT_FAILURE);
     }
 
-	while (1){
+	while (!args->should_close){
 		// Receive response from the server
 		int bytes_received = recv_from(sockfd, buffer, BUFFER_SIZE, 0, (struct sockaddr *)&server_addr, &addr_len);
 		if (bytes_received == -1) {
 			perror("recvfrom failed");
 			exit(EXIT_FAILURE);
+		}
+
+		if (args->should_close)
+		{
+			printf("shut down: breaking out of loop\n");
+			break;
 		}
 
 		// Deserialize the response packet
