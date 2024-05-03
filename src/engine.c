@@ -348,12 +348,13 @@ void engine_update(Engine* engine, GameData* data)
 	send_player_position(*engine->network_client);
 	if (IsKeyPressed(KEY_P))
 	{
-		Particle particle;
+		Particle particle = {0};
 		particle.width = 8;
 		particle.height = 8;
 		particle.lifetime = 2;
 		particle.color = BLUE;
-		particle.type = ASCENDING;
+		particle.types[0] = ASCENDING;
+		particle.types[1] = FADING;
 		particle.velocity = (Vector3){0};
 		particle.position = (Vector3){data->player.position.x, data->player.position.y, 8};
 		data->particles[data->particle_count] = particle;

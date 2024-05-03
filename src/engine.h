@@ -34,6 +34,7 @@
 
 // PARTICLE INFO
 #define MAX_PARTICLES 256
+#define MAX_PARTICLE_TYPES 4
 #define GRAVITY_CONST 3
 
 // RENDER DISPLAY
@@ -55,6 +56,7 @@
 
 typedef enum ParticleType
 {
+	PARTICLE_NULL_TYPE,
 	ASCENDING,
 	DESCENDING,
 	STANDARD,
@@ -68,7 +70,7 @@ typedef struct Particle
 	Vector3 velocity;
 	float lifetime;
 	Color color;
-	ParticleType type;
+	ParticleType types[MAX_PARTICLE_TYPES];
 	float width;
 	float height;
 
