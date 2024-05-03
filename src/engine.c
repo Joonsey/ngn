@@ -201,7 +201,9 @@ void engine_draw_first_pass(Engine* engine, GameData* data)
 	{
 		PlayerConnectionInfo player_connection_info = data->connected_players[i];
 
-		if (player_connection_info.client_index == PLAYER_NOT_CONNECTED_SYMBOL || player_connection_info.client_index == engine->network_client->my_server_id)
+		if (player_connection_info.client_index == PLAYER_NOT_CONNECTED_SYMBOL ||
+				player_connection_info.client_index == engine->network_client->my_server_id ||
+				!player_connection_info.connected)
 			continue;
 
 		Vector2 player_position = data->player_positions[i];

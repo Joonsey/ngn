@@ -56,6 +56,7 @@ typedef struct Entity {
 typedef struct PlayerConnectionInfo {
 	char name[GREET_MAX_LENGTH];
 	float client_index;
+	bool connected;
 } PlayerConnectionInfo;
 // Define the packet structure
 typedef enum PacketType {

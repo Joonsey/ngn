@@ -14,6 +14,14 @@ char* get_ipv4_address(struct sockaddr_in* sockaddr) {
   }
 }
 
+// intended to be used for a new successfull connection
+PlayerConnectionInfo make_new_player_info(int index)
+{
+	PlayerConnectionInfo info = {0};
+	info.client_index = index;
+	info.connected = true;
+	return info;
+}
 
 int send_to(int sockfd, const void *buf, size_t len, int flags, const struct sockaddr *addr, socklen_t addrlen) {
 #ifdef _WIN32
@@ -212,7 +220,7 @@ void deserialize_packet(const uint8_t* buffer, size_t buffer_size, Packet* packe
 				offset += sizeof(packet->all_players_connection_info[i]);
 			}
 			break;
-		default: 
+		default:
 			// Allocate memory for data (consider fixed buffer or alternative approach)
 			packet->data = (char*)malloc(packet->data_length);
 
@@ -304,7 +312,7 @@ void broadcast_connection_info(ConnectedClient* clients, PlayerConnectionInfo* p
 	memcpy(packet.all_players_connection_info, player_connection_info, sizeof(PlayerConnectionInfo) * MAX_CLIENTS);
 
 	size_t serialized_size = serialize_packet(&packet, send_buffer, sizeof(send_buffer));
-	
+
 	for (int i = 0; i < num_clients; i++)
 	{
 		ConnectedClient* recieving_client = &clients[i];
@@ -356,8 +364,8 @@ void* run_server(void* arg)
 	add_room_from_prefab(1, &engine, &data);
 
 	data.rooms[1].position = (Vector2){ (float)data.rooms[0].width * TILE_SIZE + TILE_SIZE, 0 };
-	data.rooms[2].position = (Vector2){ (float)data.rooms[1].width * TILE_SIZE + TILE_SIZE, data.rooms[0].height * TILE_SIZE + TILE_SIZE };
-	data.rooms[3].position = (Vector2){ -(float)data.rooms[1].width * TILE_SIZE + TILE_SIZE, data.rooms[0].height * TILE_SIZE + TILE_SIZE };
+	data.rooms[2].position = (Vector2){ (float)data.rooms[1].width * TILE_SIZE + TILE_SIZE, (float)data.rooms[0].height * TILE_SIZE + TILE_SIZE };
+	data.rooms[3].position = (Vector2){ -(float)data.rooms[1].width * TILE_SIZE + TILE_SIZE, (float)data.rooms[0].height * TILE_SIZE + TILE_SIZE };
 
 	create_collision_maps(&data);
 
@@ -408,6 +416,28 @@ void* run_server(void* arg)
             }
         }
 
+		if (client_index == -1) {
+			for (int i = 0; i < num_clients; i++) {
+				if (args->all_players_connection_info[i].connected == false && num_clients >= MAX_CLIENTS)
+				{
+					client_index = i;
+					clients[i].address = client_addr;
+					clients[i].sockfd = sockfd;
+					clients[i].position = (Vector2){0, 0};
+
+					printf("New client connected from %s:%d (yanked spot from: %d)\n", get_ipv4_address(&client_addr), client_addr.sin_port, i);
+
+					PlayerConnectionInfo info = make_new_player_info(i);
+
+					args->all_players_connection_info[i] = info;
+					memcpy(info.name, received_packet.greet_data, sizeof(char)*GREET_MAX_LENGTH);
+
+					send_connection_response(&clients[client_index], info);
+					broadcast_connection_info(clients, args->all_players_connection_info, num_clients);
+				}
+			}
+		}
+
         // If client is not found, add it to the clients array
         if (client_index == -1) {
             if (num_clients < MAX_CLIENTS) {
@@ -419,8 +449,7 @@ void* run_server(void* arg)
                 num_clients++;
                 printf("New client connected from %s:%d\n", get_ipv4_address(&client_addr), client_addr.sin_port);
 
-				PlayerConnectionInfo info = {0};
-				info.client_index = client_index;
+				PlayerConnectionInfo info = make_new_player_info(client_index);
 
 				args->all_players_connection_info[client_index] = info;
 				memcpy(info.name, received_packet.greet_data, sizeof(char)*GREET_MAX_LENGTH);
@@ -448,7 +477,6 @@ void* run_server(void* arg)
 			case POSITION_UPDATE:
 			 	clients[client_index].position = received_packet.position;
 				send_positions_response(&clients[client_index], clients);
-				printf("Received Data Position: %f, %f\n", received_packet.position.x, received_packet.position.y);
 				break;
 
 			case GREET:
@@ -457,28 +485,8 @@ void* run_server(void* arg)
 				break;
 
 			case DISCONNECT:
-			 	if (client_index < 0 || client_index >= num_clients)
-					printf("ERROR DISCONNECTING CLIENT: invalid client index %d", client_index);
-
-				// removing client from client array
-				// and shifting all subsequent clients left
-    			for (int i = client_index; i < num_clients - 1; i++)
-					clients[i] = clients[i + 1];
-
-				printf("client disconnected %d", client_index);
-				num_clients--;
-
-				// all affected clients will be distributed a new client_index / server_id
-    			for (int i = client_index; i < num_clients - 1; i++)
-				{
-					PlayerConnectionInfo info = {0};
-					info.client_index = i;
-					strcpy(info.name, data.connected_players[i].name);
-					args->all_players_connection_info[i] = info;
-					send_connection_response(&clients[i], info);
-				}
-
-				// after disconnecting all indexes should be refreshed for all clients
+				printf("client disconnected %d\n", client_index);
+				args->all_players_connection_info[client_index].connected = false;
 				broadcast_connection_info(clients, args->all_players_connection_info, num_clients);
 				break;
 		}
@@ -593,14 +601,18 @@ void* run_client(void* arg)
 				}
 				break;
 			case CLIENT_POSITION_RECIEVE:
-				memcpy(engine->network_client->game_data->player_positions, &response_packet.player_positions, sizeof(response_packet.player_positions));
+				memcpy(&engine->network_client->game_data->player_positions, &response_packet.player_positions, sizeof(response_packet.player_positions));
 				break;
 			case PLAYER_CONNECTION_INFO:
 			 	engine->network_client->my_server_id = response_packet.player_connection_info.client_index;
 				strcpy(engine->network_client->my_server_name, response_packet.player_connection_info.name);
 				break;
 			case ALL_PLAYERS_CONNECTION_INFO:
-				memcpy(engine->network_client->game_data->connected_players, response_packet.all_players_connection_info, sizeof(response_packet.all_players_connection_info));
+				memcpy(engine->network_client->game_data->connected_players, &response_packet.all_players_connection_info, sizeof(engine->network_client->game_data->connected_players));
+				break;
+			case SERVER_FULL:
+				printf("server is full!\n");
+				exit(1);
 				break;
 			default: break;
 		}
@@ -623,5 +635,5 @@ void send_disconnect(ClientData client_data)
 	dc_packet.id = 1;
     uint8_t dc_send_buffer[BUFFER_SIZE];
     size_t dc_send_buffer_size = serialize_packet(&dc_packet, dc_send_buffer, sizeof(dc_send_buffer));
-	send_to(*client_data.sock_fd, dc_send_buffer, dc_send_buffer_size  , 0, (struct sockaddr *)client_data.server_addr, sizeof(*client_data.server_addr));
+	send_to(*client_data.sock_fd, dc_send_buffer, dc_send_buffer_size, 0, (struct sockaddr *)client_data.server_addr, sizeof(*client_data.server_addr));
 }
