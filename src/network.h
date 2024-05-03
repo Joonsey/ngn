@@ -136,7 +136,7 @@ size_t serialize_packet(const Packet* packet, uint8_t* buffer, size_t buffer_siz
 			offset += sizeof(packet->position);
 			break;
 		case MAP_DATA:
-			memcpy(buffer + offset, packet->data, BUFFER_SIZE - offset);
+			memcpy(buffer + offset, packet->data, packet->data_length);
 			offset += buffer_size;
 			break;
 		case CLIENT_POSITION_RECIEVE:
@@ -330,20 +330,6 @@ void* run_server(void* arg)
     struct sockaddr_in server_addr, client_addr;
     socklen_t addr_len = sizeof(client_addr);
 
-#ifdef _WIN32
-	WSADATA wsa_data;
-	if (WSAStartup(MAKEWORD(2, 2), &wsa_data) != 0) {
-		fprintf(stderr, "WSAStartup failed with error: %d\n", WSAGetLastError());
-		return 1;
-	}
-#endif
-
-    // Create UDP socket
-    if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1) {
-        perror("Socket creation failed");
-        exit(EXIT_FAILURE);
-    }
-
     // Initialize server address structure
     memset(&server_addr, 0, sizeof(server_addr));
     server_addr.sin_family = AF_INET;
@@ -369,6 +355,20 @@ void* run_server(void* arg)
 
 	create_collision_maps(&data);
 
+
+#ifdef _WIN32
+	WSADATA wsa_data;
+	if (WSAStartup(MAKEWORD(2, 2), &wsa_data) != 0) {
+		fprintf(stderr, "WSAStartup failed with error: %d\n", WSAGetLastError());
+		return 1;
+	}
+#endif
+
+    // Create UDP socket
+    if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1) {
+        perror("Socket creation failed");
+        exit(EXIT_FAILURE);
+    }
 
     // Bind socket to the server address
     if (bind(sockfd, (struct sockaddr *)&server_addr, sizeof(server_addr)) == -1) {
