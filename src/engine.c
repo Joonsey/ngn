@@ -274,6 +274,8 @@ void update_player(Engine* engine, GameData* data)
 {
 	// Player movement
 	bool collision = false;
+	Vector2 start_pos = data->player.position;
+
 	if (IsKeyDown(KEY_D)) data->player.position.x += 2.0f;
 	collision = check_wall_collision(&data->player, data);
 	if(collision) data->player.position.x -= 2.0f;
@@ -289,6 +291,17 @@ void update_player(Engine* engine, GameData* data)
 	if (IsKeyDown(KEY_S)) data->player.position.y += 2.0f;
 	collision = check_wall_collision(&data->player, data);
 	if(collision) data->player.position.y -= 2.0f;
+
+
+	if(Vector2Distance(start_pos, data->player.position) != 0)
+	{
+		Particle particle = {0};
+		initialize_particle(&particle, 8, 8, 2, BLUE,
+				Vector3Zero(),
+				(Vector3){data->player.position.x, data->player.position.y, 8});
+		set_particle_types(&particle, ASCENDING, FADING, SHRINKING, PARTICLE_NULL_TYPE);
+		add_particle(particle, data);
+	}
 
 }
 
@@ -346,26 +359,18 @@ void engine_update(Engine* engine, GameData* data)
 	}
 
 	send_player_position(*engine->network_client);
-	
+
 	//put in funny function
 	if (IsKeyPressed(KEY_P))
 	{
-		if(data->particle_count < MAX_PARTICLES)
-		{		
-			Particle particle = {0};
-			particle.width = 8;
-			particle.height = 8;
-			particle.lifetime = 2;
-			particle.color = BLUE;
-			particle.types[0] = ASCENDING;
-			particle.types[1] = FADING;
-			particle.velocity = (Vector3){0};
-			particle.position = (Vector3){data->player.position.x, data->player.position.y, 8};
-			data->particles[data->particle_count] = particle;
-			data->particle_count += 1;
-		}
+		Particle particle = {0};
+		initialize_particle(&particle, 8, 8, 2, BLUE,
+				Vector3Zero(),
+				(Vector3){data->player.position.x, data->player.position.y, 8});
+		set_particle_types(&particle, ASCENDING, FADING, SHRINKING, PARTICLE_NULL_TYPE);
+		add_particle(particle, data);
 	}
-	
+
 	particles_cleanup(data);
 
 }

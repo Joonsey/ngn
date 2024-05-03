@@ -22,6 +22,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <stdarg.h>
 #include <pthread.h>
 
 // ROOM INFO
@@ -57,10 +58,16 @@
 typedef enum ParticleType
 {
 	PARTICLE_NULL_TYPE,
+
+
 	ASCENDING,
 	DESCENDING,
 	STANDARD,
 	FADING,
+	SHRINKING,
+
+
+	PARTICLE_MAX_TYPE
 } ParticleType;
 
 
