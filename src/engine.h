@@ -22,14 +22,21 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <stdarg.h>
 #include <pthread.h>
 
-#include "room.h"
-
+// ROOM INFO
+#define MAX_ROOM_HEIGHT 32
+#define MAX_ROOM_WIDTH  32
 
 // SCREEN RESOLUTION
 #define screen_width	800
 #define screen_height	450
+
+// PARTICLE INFO
+#define MAX_PARTICLES 256
+#define MAX_PARTICLE_TYPES 4
+#define GRAVITY_CONST 3
 
 // RENDER DISPLAY
 #define render_width	240
@@ -46,6 +53,36 @@
 #define GREET_MAX_LENGTH 6
 #define BUFFER_SIZE 1024
 #define PLAYER_NOT_CONNECTED_SYMBOL -1
+
+
+typedef enum ParticleType
+{
+	PARTICLE_NULL_TYPE,
+
+
+	ASCENDING,
+	DESCENDING,
+	STANDARD,
+	FADING,
+	SHRINKING,
+
+
+	PARTICLE_MAX_TYPE
+} ParticleType;
+
+
+typedef struct Particle
+{
+	Vector3 position;
+	Vector3 velocity;
+	float lifetime;
+	Color color;
+	ParticleType types[MAX_PARTICLE_TYPES];
+	float width;
+	float height;
+
+}Particle;
+
 
 typedef struct Entity {
 	Vector2 position;
@@ -109,6 +146,28 @@ typedef struct EngineSettings {
 	bool wall_hitbox;
 } EngineSettings;
 
+typedef enum {
+	EMPTY,
+	FLOOR,
+	WALL
+} TileType;
+
+typedef struct Tile {
+	TileType type;
+} Tile;
+
+typedef struct Room {
+	Vector2 position;
+	int id;
+	int width;
+	int height;
+	Tile** tiles;
+	struct Room** connected_rooms;
+	int num_connected_rooms;
+	Rectangle* walls;
+	int no_of_walls;
+} Room;
+
 typedef struct GameData {
 	Entity player;
 	char* debug_text;
@@ -120,6 +179,8 @@ typedef struct GameData {
 	Room* player_last_visited_room;
 	Vector2 player_positions[MAX_CLIENTS];
 	PlayerConnectionInfo connected_players[MAX_CLIENTS];
+	int particle_count;
+	Particle particles[MAX_PARTICLES];
 } GameData;
 
 typedef struct {
@@ -138,6 +199,7 @@ typedef struct Engine {
 	Room room_map[255];
 	Texture2D texture_map;
 	ClientData* network_client;
+	float frame_time;
 } Engine;
 
 typedef struct {

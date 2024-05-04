@@ -1,4 +1,6 @@
 #include "engine.h"
+#include "particle.h"
+#include "room.h"
 
 void send_player_position(ClientData client_data)
 {
@@ -182,6 +184,12 @@ void engine_draw_first_pass(Engine* engine, GameData* data)
 				DrawRectangleRec(wall, RED);
 			}
 
+
+	for (i = 0; i < data->particle_count; i++)
+	{
+		render_particle(engine, data, &data->particles[i]);
+	}
+
 	// do uv mapping
 	if (engine->settings.render_uv)
 	{
@@ -266,6 +274,8 @@ void update_player(Engine* engine, GameData* data)
 {
 	// Player movement
 	bool collision = false;
+	Vector2 start_pos = data->player.position;
+
 	if (IsKeyDown(KEY_D)) data->player.position.x += 2.0f;
 	collision = check_wall_collision(&data->player, data);
 	if(collision) data->player.position.x -= 2.0f;
@@ -282,11 +292,30 @@ void update_player(Engine* engine, GameData* data)
 	collision = check_wall_collision(&data->player, data);
 	if(collision) data->player.position.y -= 2.0f;
 
+	//quick debug/stress test
+	//if(Vector2Distance(start_pos, data->player.position) != 0)
+	//{
+	//	Particle particle = {0};
+	//	initialize_particle(&particle, 8, 8, 2, BLUE,
+	//			Vector3Zero(),
+	//			(Vector3){data->player.position.x, data->player.position.y, 8});
+	//	set_particle_types(&particle, ASCENDING, FADING, SHRINKING, PARTICLE_NULL_TYPE);
+	//	add_particle(particle, data);
+	//}
+
 }
 
 void engine_update(Engine* engine, GameData* data)
 {
+	engine->frame_time = GetFrameTime();
+
 	update_player(engine, data);
+
+	for (int i = 0; i < data->particle_count; i++)
+	{
+		update_particle(engine, &data->particles[i], engine->frame_time);
+	}
+	
 
 	Vector2 target_pos = data->player.position;
 
@@ -330,6 +359,20 @@ void engine_update(Engine* engine, GameData* data)
 	}
 
 	send_player_position(*engine->network_client);
+
+	//put in funny function
+	if (IsKeyPressed(KEY_P))
+	{
+		Particle particle = {0};
+		initialize_particle(&particle, 8, 8, 2, BLUE,
+				Vector3Zero(),
+				(Vector3){data->player.position.x, data->player.position.y, 8});
+		set_particle_types(&particle, ASCENDING, FADING, SHRINKING, PARTICLE_NULL_TYPE);
+		add_particle(particle, data);
+	}
+
+	particles_cleanup(data);
+
 }
 
 void engine_exit(Engine* engine, GameData* data)
