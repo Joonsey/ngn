@@ -212,9 +212,51 @@ void engine_draw_first_pass(Engine* engine, GameData* data)
 		Vector2 player_position = data->player_entity_infos[i].position;
 		Entity entity = {0};
 		entity.position = player_position;
+		entity.state = data->player_entity_infos[i].state;
 		entity.texture = data->player.texture;
 		entity.UV_texture = data->player.UV_texture;
 		draw_entity(&entity, engine->uv_shader, data->camera_offset);
+
+		Particle particle;
+		Vector3 velocity = Vector3Zero();
+		Vector3 position = { .x = entity.position.x, .y = entity.position.y, .z = 0 };
+		switch (entity.state)
+		{
+			case MOVE_UP:
+				velocity.z = -GRAVITY_CONST;
+
+				initialize_particle(&particle, 8, 8, 2, GREEN, velocity, position);
+				set_particle_types(&particle, FADING, SHRINKING, PARTICLE_NULL_TYPE);
+				add_particle(particle, data);
+				break;
+
+			case MOVE_DOWN:
+				velocity.z = GRAVITY_CONST;
+
+				initialize_particle(&particle, 8, 8, 2, GREEN, velocity, position);
+				set_particle_types(&particle, FADING, SHRINKING, PARTICLE_NULL_TYPE);
+				add_particle(particle, data);
+				break;
+
+			case MOVE_RIGHT:
+				velocity.x = GRAVITY_CONST;
+
+				initialize_particle(&particle, 8, 8, 2, GREEN, velocity, position);
+				set_particle_types(&particle, FADING, SHRINKING, PARTICLE_NULL_TYPE);
+				add_particle(particle, data);
+				break;
+
+			case MOVE_LEFT:
+				velocity.x = -GRAVITY_CONST;
+
+				initialize_particle(&particle, 8, 8, 2, GREEN, velocity, position);
+				set_particle_types(&particle, FADING, SHRINKING, PARTICLE_NULL_TYPE);
+				add_particle(particle, data);
+				break;
+			default:
+				break;
+		}
+
 	}
 
 	// draw projectiles
