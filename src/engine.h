@@ -46,10 +46,21 @@
 #define MAX_ROOM_HEIGHT 32
 #define MAX_ROOM_WIDTH  32
 
+typedef enum EntityState {
+	IDLE,
+	MOVE_LEFT,
+	MOVE_DOWN,
+	MOVE_UP,
+	MOVE_RIGHT,
+	ATTACKING,
+	DEAD
+} EntityState;
+
 typedef struct Entity {
 	Vector2 position;
 	Texture2D texture;
 	Texture UV_texture;
+	EntityState state;
 } Entity;
 
 typedef struct {
@@ -141,6 +152,7 @@ void engine_update(Engine*, GameData*);
 void engine_render(Engine*, GameData*);
 
 Entity make_player(Texture player_texture, Texture UV_texture);
+void handle_player_state(Entity *entity);
 
 
 void player_init(Engine* engine, GameData* data);
