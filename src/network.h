@@ -60,29 +60,15 @@ const int safety_margin = 10;
 int chunk_size = BUFFER_SIZE - sizeof(Packet) - safety_margin;
 
 
-void build_tiles_and_walls(Engine *engine, GameData* data)
+void build_tiles_and_walls(Engine *engine, Room* rooms, RoomPacketInfo* input_rooms, size_t num_rooms)
 {
-	// we only obtain references to tiles and walls from the server
-	// but we don't actually need them
-	//
-	// we can just obtain position and room id to generate our own, and rely entirely on the world generation from the server
-	//
-	// ideally we can optimize for sending only partial packets as well where can do more procedural world generation
-	// spent 2 hours trying to send world data until i realised we don't need to send the tiles & walls lol
-	//
-	for (int i = 0; i < data->room_count; i++)
+	for (int i = 0; i < num_rooms; i++)
 	{
-		Room *room = &data->rooms[i];
-
-		Vector2 position = room->position;
-
-		memcpy(room, &engine->room_map[room->id], sizeof(Room));
-		room->position = position;
+		RoomPacketInfo input_room = input_rooms[i];
+		Room* destination_room = &rooms[i];
+		memcpy(destination_room, &engine->room_map[input_room.room_id], sizeof(Room));
+		destination_room->position = input_room.position;
 	}
-
-	create_collision_maps(data);
-	printf("completed building tiles and walls\n");
-
 }
 
 // Function to serialize a packet to a byte array
@@ -91,6 +77,7 @@ size_t serialize_packet(const Packet* packet, uint8_t* buffer, size_t buffer_siz
 
     // Ensure buffer is large enough to hold the serialized data
     if (buffer_size < sizeof(uint32_t) + sizeof(uint16_t) + sizeof(uint16_t) + packet->data_length) {
+		printf("not enough space in packet\n");
         return 0; // Not enough space
     }
 
@@ -158,7 +145,8 @@ size_t serialize_packet(const Packet* packet, uint8_t* buffer, size_t buffer_siz
 				offset += sizeof(temp);
 			}
 			break;
-		default: break;
+		default:
+			break;
 	}
 
 
@@ -232,36 +220,55 @@ void deserialize_packet(const uint8_t* buffer, size_t buffer_size, Packet* packe
 }
 
 void send_map_data_to_client(ConnectedClient* client, GameData* data) {
-	int num_fragments = (data->room_count * sizeof(Room)) / chunk_size;
-	if ((data->room_count * sizeof(Room)) % chunk_size > 0) {
-		num_fragments++; // Account for the last partial chunk
-	}
+
+	// number of rooms we can send per packet
+	// 'safety_margin_including_overhead' here is a safety margin which includes the packet overhead;
+	// like id, type, fragment info etc.
+	const int safety_margin_including_overhead = 100;
+	const int max_num_rooms_per_packet =
+		(BUFFER_SIZE - safety_margin_including_overhead) / sizeof(RoomPacketInfo);
+
+	const int total_num_rooms = data->room_count;
+
+	int num_fragments = 1 + ceil(total_num_rooms / max_num_rooms_per_packet);
+	int remaining_room_count = total_num_rooms;
 
 	for (int i = 0; i < num_fragments; ++i) {
 		uint8_t send_buffer[BUFFER_SIZE] = {0};
+
+		int num_rooms_in_this_iteration = Clamp(remaining_room_count, 1, max_num_rooms_per_packet);
 		Packet packet = {0};
 		packet.id = 0;
 		packet.type = MAP_DATA;
 
-		int chunk_offset = i * chunk_size;
-		int chunk_length = chunk_size;
-		if (i == num_fragments - 1) {
-			// Adjust for the last partial chunk
-			chunk_length = (data->room_count * sizeof(Room)) % chunk_size;
-		}
-
-		packet.data_length = chunk_length;
-		packet.is_fragmented = true;
+		// because of this notation, this also means we can use data_length
+		// to decode the room count on the other end!
+		packet.data_length = num_rooms_in_this_iteration * sizeof(RoomPacketInfo);
+		packet.is_fragmented = true ? num_fragments > 1 : false;
 		packet.fragment_id = i;
-		packet.total_fragments = data->room_count;
+		packet.total_fragments = num_fragments;
 
-		packet.data = (char*)malloc(chunk_length);
-		memcpy(packet.data, data->rooms + chunk_offset, chunk_length);
+		packet.rooms = (RoomPacketInfo*)malloc(packet.data_length);
+
+		for (int n = 0; n < num_rooms_in_this_iteration; n++)
+		{
+			// we take the i * max_num_rooms_per_packet to offsett by the current iteration
+			// n is then the normal iterator that we increment
+			Room room = data->rooms[i * max_num_rooms_per_packet + n];
+
+			RoomPacketInfo room_info = {0};
+			room_info.position = room.position;
+			room_info.room_id = room.id;
+
+			packet.rooms[n] = room_info;
+		}
 
 		size_t serialized_size = serialize_packet(&packet, send_buffer, sizeof(send_buffer));
 		send_to(client->sockfd, send_buffer, serialized_size, 0, (struct sockaddr *)&client->address, sizeof(client->address));
 
-		if (packet.data != NULL) free(packet.data); // Free allocated memory for data
+		free(packet.rooms); // Free allocated memory for data
+
+		remaining_room_count -= max_num_rooms_per_packet;
 	}
 }
 
@@ -584,26 +591,56 @@ void* run_client(void* arg)
 		switch(response_packet.type) {
 			case MAP_DATA:
 				if (response_packet.is_fragmented) {
-					uint32_t data_id = response_packet.id;
-					uint16_t fragment_id = response_packet.fragment_id;
-					int room_count = response_packet.total_fragments;
+					int fragment_id = response_packet.fragment_id;
+					int total_fragments = response_packet.total_fragments;
+					int room_count = response_packet.data_length / sizeof(RoomPacketInfo);
 
-					// Calculate offset within data.rooms for this fragment
+					GameData* data = engine->network_client->game_data;
+					// if first packet, we malloc rooms
+					// otherwise we extend it
+					// here we could also be naive and not give it any wiggle room with the capacity
+					// but it would mean we have an easy time making errors other places, so i say we keep like this
+					if (response_packet.id == 1)
+						data->rooms = (Room*)malloc((data->room_capacity + room_count) * sizeof(Room));
+					else
+						data->rooms = (Room*)realloc(data->rooms, (data->room_capacity + room_count) * sizeof(Room));
 
-					printf("got fragment packet id %d out of %d total\n", fragment_id, response_packet.total_fragments);
-					if (fragment_id == 0) {
-						room_address_offset = 0;
-						//if (client_data->data->rooms != NULL) free(client_data->data->rooms);
-						engine->network_client->game_data->room_count = room_count; // Update expected room count
-						engine->network_client->game_data->room_capacity = engine->network_client->game_data->room_count + 1;
-						engine->network_client->game_data->rooms = (Room*)malloc(sizeof(Room)* engine->network_client->game_data->room_capacity);
+					build_tiles_and_walls(
+							engine,
+							&data->rooms[data->room_count],
+							response_packet.rooms,
+							room_count);
+
+					// extend the capacity and room count
+					data->room_count += room_count;
+					data->room_capacity += room_count;
+
+					// when we are done building we can create collision for all rooms
+					if (fragment_id == total_fragments)
+					{
+						create_collision_maps(data);
+						printf("completed building tiles and walls\n");
 					}
 
-					// Copy received fragment data directly into data.rooms
-					memcpy(engine->network_client->game_data->rooms + room_address_offset, response_packet.data, response_packet.data_length);
-					room_address_offset += response_packet.data_length;
+				}
 
-					build_tiles_and_walls(engine, engine->network_client->game_data);
+				else {
+					int room_count = response_packet.data_length / sizeof(RoomPacketInfo);
+
+					// here it's very small and simple, we do a naive implementation where we don't extend by default room_capacity
+					// this is an inconsistency but i think it will be fine if we at all assume these sizes
+
+					GameData* data = engine->network_client->game_data;
+					data->rooms = (Room*)malloc(room_count * sizeof(Room));
+					data->room_count = room_count;
+					build_tiles_and_walls(
+							engine,
+							data->rooms,
+							response_packet.rooms,
+							room_count);
+					create_collision_maps(data);
+					printf("completed building tiles and walls\n");
+
 				}
 				break;
 			case CLIENT_POSITION_RECIEVE:
