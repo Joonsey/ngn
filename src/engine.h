@@ -49,9 +49,9 @@
 typedef enum EntityState {
 	IDLE,
 	MOVE_LEFT,
+	MOVE_RIGHT,
 	MOVE_DOWN,
 	MOVE_UP,
-	MOVE_RIGHT,
 	ATTACKING,
 	DEAD
 } EntityState;
@@ -67,13 +67,12 @@ typedef struct {
 	char *server_ip;
 	int server_port;
 	bool setup_complete;
-	PlayerConnectionInfo all_players_connection_info[MAX_CLIENTS];
 } RunServerArguments;
 
 typedef struct {
     struct sockaddr_in address;
     int sockfd;
-	Vector2 position;
+	EntityPacketInfo entity_info;
 	char* name;
 } ConnectedClient;
 
@@ -113,7 +112,7 @@ typedef struct GameData {
 	Vector2 camera_offset;
 	bool player_inside_room;
 	Room* player_last_visited_room;
-	Vector2 player_positions[MAX_CLIENTS];
+	EntityPacketInfo player_entity_infos[MAX_CLIENTS];
 	PlayerConnectionInfo connected_players[MAX_CLIENTS];
 	int particle_count;
 	Particle particles[MAX_PARTICLES];

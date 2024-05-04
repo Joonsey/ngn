@@ -209,7 +209,7 @@ void engine_draw_first_pass(Engine* engine, GameData* data)
 				!player_connection_info.connected)
 			continue;
 
-		Vector2 player_position = data->player_positions[i];
+		Vector2 player_position = data->player_entity_infos[i].position;
 		Entity entity = {0};
 		entity.position = player_position;
 		entity.texture = data->player.texture;
@@ -237,7 +237,7 @@ void engine_draw_last_pass(Engine* engine, GameData* data)
 			WHITE);
 
 
-	data->debug_text = (char*)TextFormat("total rooms: %i", get_total_num_rooms(data));
+	data->debug_text = (char*)TextFormat("player state: %i", data->player.state);
 	DrawText(data->debug_text, 10, 10, 20, MAROON);
 
 	EndDrawing();
@@ -271,7 +271,7 @@ void update_player(Engine* engine, GameData* data)
 {
 	// Player movement
 	bool collision = false;
-	//Vector2 start_pos = data->player.position;
+	Vector2 start_pos = data->player.position;
 
 	if (IsKeyDown(KEY_D)) data->player.position.x += 2.0f;
 	collision = check_wall_collision(data->player.position, data);
@@ -289,16 +289,28 @@ void update_player(Engine* engine, GameData* data)
 	collision = check_wall_collision(data->player.position, data);
 	if(collision) data->player.position.y -= 2.0f;
 
-	//quick debug/stress test
-	//if(Vector2Distance(start_pos, data->player.position) != 0)
-	//{
-	//	Particle particle = {0};
-	//	initialize_particle(&particle, 8, 8, 2, BLUE,
-	//			Vector3Zero(),
-	//			(Vector3){data->player.position.x, data->player.position.y, 8});
-	//	set_particle_types(&particle, ASCENDING, FADING, SHRINKING, PARTICLE_NULL_TYPE);
-	//	add_particle(particle, data);
-	//}
+	if (start_pos.x < data->player.position.x)
+		data->player.state = MOVE_RIGHT;
+	if (start_pos.x > data->player.position.x)
+		data->player.state = MOVE_LEFT;
+
+	if (start_pos.y < data->player.position.y)
+		data->player.state = MOVE_UP;
+	if (start_pos.y > data->player.position.y)
+		data->player.state = MOVE_DOWN;
+
+	if(Vector2Distance(start_pos, data->player.position) != 0)
+	{
+		Particle particle = {0};
+		initialize_particle(&particle, 8, 8, 2, BLUE,
+				Vector3Zero(),
+				(Vector3){data->player.position.x, data->player.position.y, 8});
+		set_particle_types(&particle, ASCENDING, FADING, SHRINKING, PARTICLE_NULL_TYPE);
+		add_particle(particle, data);
+	}
+	else {
+		data->player.state = IDLE;
+	}
 
 }
 

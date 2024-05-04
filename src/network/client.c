@@ -17,10 +17,15 @@ void build_tiles_and_walls(Engine *engine, Room* rooms, RoomPacketInfo* input_ro
 void send_player_position(ClientData client_data)
 {
     Packet position_packet = {0};
-	position_packet.type = POSITION_UPDATE;
+	EntityPacketInfo ent = {0};
+	position_packet.type = ENTITY_UPDATE;
 	position_packet.id = 1;
-	position_packet.position = client_data.game_data->player.position;
-	position_packet.data_length = sizeof(Vector2);
+
+	ent.position = client_data.game_data->player.position;
+	ent.state = client_data.game_data->player.state;
+
+	position_packet.entity_info = ent;
+	position_packet.data_length = sizeof(EntityPacketInfo);
 
 	send_packet(position_packet, *client_data.sock_fd, *(struct sockaddr*)client_data.server_addr);
 }
@@ -164,8 +169,8 @@ void* run_client(void* arg)
 
 				}
 				break;
-			case CLIENT_POSITION_RECIEVE:
-				memcpy(&engine->network_client->game_data->player_positions, &response_packet.player_positions, sizeof(response_packet.player_positions));
+			case CLIENT_ENTITY_UPDATE_RECIEVE:
+				memcpy(&engine->network_client->game_data->player_entity_infos, &response_packet.entity_infos, sizeof(response_packet.entity_infos));
 				break;
 			case PLAYER_CONNECTION_INFO:
 			 	engine->network_client->my_server_id = response_packet.player_connection_info.client_index;

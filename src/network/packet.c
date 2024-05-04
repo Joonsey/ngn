@@ -6,7 +6,7 @@
 #include <string.h>
 
 // Function to serialize a packet to a byte array
-size_t serialize_packet(const Packet* packet, uint8_t* buffer, size_t buffer_size) {
+size_t serialize_packet(Packet* packet, uint8_t* buffer, size_t buffer_size) {
     size_t offset = 0;
 
     // Ensure buffer is large enough to hold the serialized data
@@ -52,18 +52,29 @@ size_t serialize_packet(const Packet* packet, uint8_t* buffer, size_t buffer_siz
 			break;
 		case SERVER_FULL:
 			break;
-		case POSITION_UPDATE:
-			memcpy(buffer + offset, &packet->position, sizeof(packet->position));
-			offset += sizeof(packet->position);
-			break;
+		case ENTITY_UPDATE:
+			{
+				EntityPacketInfo info = packet->entity_info;
+				info.state = htons(info.state);
+				memcpy(buffer + offset, &info, sizeof(packet->entity_info));
+				offset += sizeof(packet->entity_info);
+				break;
+			}
 		case MAP_DATA:
 			memcpy(buffer + offset, packet->data, packet->data_length);
 			offset += buffer_size;
 			break;
-		case CLIENT_POSITION_RECIEVE:
-			memcpy(buffer + offset, &packet->player_positions, sizeof(packet->player_positions));
-			offset += sizeof(packet->player_positions);
-			break;
+		case CLIENT_ENTITY_UPDATE_RECIEVE:
+			for (int i = 0; i < MAX_CLIENTS; i++)
+			{
+				// this causes us to not allow packet to be const
+				// TODO: fix this to allow for packet to be const
+				EntityPacketInfo* entity = &packet->entity_infos[i];
+				entity->state = htons(entity->state);
+
+			}
+			memcpy(buffer + offset, &packet->entity_infos, sizeof(packet->entity_infos));
+			offset += sizeof(packet->entity_infos);
 		case PLAYER_CONNECTION_INFO:
 			memcpy(buffer + offset, &packet->player_connection_info, sizeof(packet->player_connection_info));
 			offset += sizeof(packet->player_connection_info);
@@ -123,13 +134,20 @@ void deserialize_packet(const uint8_t* buffer, size_t buffer_size, Packet* packe
 			break;
 		case SERVER_FULL:
 			break;
-		case POSITION_UPDATE:
-			memcpy(&packet->position, buffer + offset, sizeof(packet->position));
-			offset += sizeof(packet->position);
+		case ENTITY_UPDATE:
+			memcpy(&packet->entity_info, buffer + offset, sizeof(packet->entity_info));
+			packet->entity_info.state = ntohs(packet->entity_info.state);
+			offset += sizeof(packet->entity_info);
 			break;
-		case CLIENT_POSITION_RECIEVE:
-			memcpy(&packet->player_positions, buffer + offset, sizeof(packet->player_positions));
-			offset += sizeof(packet->player_positions);
+		case CLIENT_ENTITY_UPDATE_RECIEVE:
+			memcpy(&packet->entity_infos, buffer + offset, sizeof(packet->entity_infos));
+			for (int i = 0; i < MAX_CLIENTS; i++)
+			{
+				EntityPacketInfo* entity = &packet->entity_infos[i];
+				entity->state = ntohs(entity->state);
+
+			}
+			offset += sizeof(packet->entity_infos);
 			break;
 		case PLAYER_CONNECTION_INFO:
 			memcpy(&packet->player_connection_info, buffer + offset, sizeof(packet->player_connection_info));
@@ -153,7 +171,7 @@ void deserialize_packet(const uint8_t* buffer, size_t buffer_size, Packet* packe
 	}
 }
 
-void send_packet(const Packet packet, int sock_fd, struct sockaddr addr)
+void send_packet(Packet packet, int sock_fd, struct sockaddr addr)
 {
     uint8_t send_buffer[BUFFER_SIZE];
 	size_t buffer_size = serialize_packet(&packet, send_buffer, sizeof(send_buffer));
