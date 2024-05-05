@@ -81,7 +81,7 @@ typedef struct Particle
 	float width;
 	float height;
 
-}Particle;
+} Particle;
 
 
 typedef struct Entity {
@@ -107,6 +107,16 @@ typedef enum PacketType {
 	CLIENT_POSITION_RECIEVE
 } PacketType;
 
+typedef struct RoomPacketInfo {
+	Vector2 position;
+	int room_id;
+} RoomPacketInfo;
+
+typedef struct EntityPacketInfo {
+	Vector2 position;
+	uint16_t state;
+} EntityPacketInfo;
+
 typedef struct {
     uint32_t id;
 	uint16_t type;
@@ -124,6 +134,9 @@ typedef struct {
 		char greet_data[GREET_MAX_LENGTH];
 		Vector2 position;
 		Vector2 player_positions[MAX_CLIENTS];
+		EntityPacketInfo entity_info;
+		EntityPacketInfo entity_infos[MAX_CLIENTS];
+		RoomPacketInfo *rooms;
 	};
 } Packet;
 
