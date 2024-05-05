@@ -1,19 +1,7 @@
 #include "engine.h"
 #include "particle.h"
 #include "room.h"
-
-void send_player_position(ClientData client_data)
-{
-    Packet position_packet = {0};
-	position_packet.type = POSITION_UPDATE;
-	position_packet.id = 1;
-	position_packet.position = client_data.game_data->player.position;
-	position_packet.data_length = sizeof(Vector2);
-
-    uint8_t pos_send_buffer[BUFFER_SIZE];
-    size_t pos_send_buffer_size = serialize_packet(&position_packet, pos_send_buffer, sizeof(pos_send_buffer));
-	send_to(*client_data.sock_fd, pos_send_buffer, pos_send_buffer_size  , 0, (struct sockaddr *)client_data.server_addr, sizeof(*client_data.server_addr));
-}
+#include "network.h"
 
 void initiate_room_prefabs(Engine *engine, const char* dir_path)
 {
@@ -274,7 +262,7 @@ void update_player(Engine* engine, GameData* data)
 {
 	// Player movement
 	bool collision = false;
-	Vector2 start_pos = data->player.position;
+	//Vector2 start_pos = data->player.position;
 
 	if (IsKeyDown(KEY_D)) data->player.position.x += 2.0f;
 	collision = check_wall_collision(&data->player, data);

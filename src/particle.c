@@ -104,7 +104,6 @@ void update_particle(Engine* engine, Particle* particle, float deltatime)
 
 void particles_cleanup(GameData* data)
 {
-	int i;
 	int current_index = 0;
 
 	while (current_index < data->particle_count - 1)
@@ -116,8 +115,7 @@ void particles_cleanup(GameData* data)
 		}
 		//optimize "array-shifting"
 		memcpy(&data->particles[current_index], &data->particles[current_index+1], sizeof(Particle) * (data->particle_count - current_index - 1));
-	
+
 		data->particle_count -= 1;
 	}
-	
 }
