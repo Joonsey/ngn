@@ -2,6 +2,7 @@
 #include "particle.h"
 #include "room.h"
 #include "network.h"
+#include "projectile.h"
 
 void initiate_room_prefabs(Engine *engine, const char* dir_path)
 {
@@ -84,7 +85,13 @@ void create_collision_maps(GameData* data)
 	}
 }
 
-bool check_wall_collision(Entity* entity, GameData* data)
+Entity* check_entity_collision(Vector2 position, GameData* data)
+{
+	// TODO
+	return NULL;
+}
+
+Rectangle* check_wall_collision(Vector2 position, GameData* data)
 {
 	for(int i = 0; i < data->room_count; i++)
 		for(int an = 0; an < data->rooms[i].no_of_walls; an++)
@@ -92,10 +99,10 @@ bool check_wall_collision(Entity* entity, GameData* data)
 			Rectangle wall = data->rooms[i].walls[an];
 			wall.x += data->rooms[i].position.x;
 			wall.y += data->rooms[i].position.y;
-			bool collision = CheckCollisionRecs((Rectangle){entity->position.x, entity->position.y, TILE_SIZE, TILE_SIZE}, wall);
-			if(collision) return true;
+			bool collision = CheckCollisionRecs((Rectangle){position.x, position.y, TILE_SIZE, TILE_SIZE}, wall);
+			if(collision) return &data->rooms[i].walls[an];
 		}
-	return false;
+	return NULL;
 }
 
 void engine_init(Engine* engine, GameData* data)
@@ -208,8 +215,10 @@ void engine_draw_first_pass(Engine* engine, GameData* data)
 		entity.texture = data->player.texture;
 		entity.UV_texture = data->player.UV_texture;
 		draw_entity(&entity, engine->uv_shader, data->camera_offset);
-
 	}
+
+	// draw projectiles
+	render_projectiles(engine, data);
 }
 
 // rendering render-display onto the window, scaling it up to correct size
@@ -265,19 +274,19 @@ void update_player(Engine* engine, GameData* data)
 	//Vector2 start_pos = data->player.position;
 
 	if (IsKeyDown(KEY_D)) data->player.position.x += 2.0f;
-	collision = check_wall_collision(&data->player, data);
+	collision = check_wall_collision(data->player.position, data);
 	if(collision) data->player.position.x -= 2.0f;
 
 	if (IsKeyDown(KEY_A)) data->player.position.x -= 2.0f;
-	collision = check_wall_collision(&data->player, data);
+	collision = check_wall_collision(data->player.position, data);
 	if(collision) data->player.position.x += 2.0f;
 
 	if (IsKeyDown(KEY_W)) data->player.position.y -= 2.0f;
-	collision = check_wall_collision(&data->player, data);
+	collision = check_wall_collision(data->player.position, data);
 	if(collision) data->player.position.y += 2.0f;
 
 	if (IsKeyDown(KEY_S)) data->player.position.y += 2.0f;
-	collision = check_wall_collision(&data->player, data);
+	collision = check_wall_collision(data->player.position, data);
 	if(collision) data->player.position.y -= 2.0f;
 
 	//quick debug/stress test
@@ -303,7 +312,6 @@ void engine_update(Engine* engine, GameData* data)
 	{
 		update_particle(engine, &data->particles[i], engine->frame_time);
 	}
-	
 
 	Vector2 target_pos = data->player.position;
 
@@ -345,6 +353,12 @@ void engine_update(Engine* engine, GameData* data)
 		data->debug_text = "toggled wall hitboxes";
 		engine->settings.wall_hitbox = !engine->settings.wall_hitbox;
 	}
+	if (IsKeyPressed(KEY_E))
+	{
+		create_projectile(PROJECTILE_BULLET, data->player.position, (Vector2){1, 0});
+	}
+
+	update_projectiles(data, engine->frame_time);
 
 	send_player_position(*engine->network_client);
 

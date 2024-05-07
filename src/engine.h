@@ -237,7 +237,8 @@ void draw_entity(Entity* entity, Shader uv_shader, Vector2 camera_offset);
 void initiate_room_prefabs(Engine *engine, const char* dir_path);
 void add_room_from_prefab(int prefab_id, Engine* engine, GameData* data);
 
-bool check_wall_collision(Entity* entity, GameData* data);
+Rectangle* check_wall_collision(Vector2 position, GameData* data);
+Entity* check_entity_collision(Vector2 position, GameData* data);
 void create_collision_maps(GameData* data);
 
 // pre-processing render
