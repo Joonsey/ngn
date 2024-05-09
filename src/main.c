@@ -1,5 +1,6 @@
 #include "engine.h"
 #include "network.h"
+#include "projectile.h"
 
 #define DEFAULT_SERVER_IP "84.215.24.251"
 #define DEFAULT_SERVER_PORT 8888
@@ -94,6 +95,8 @@ int main(int argc, char *argv[]) {
 	player_init(&engine, &data);
     engine.uv_shader = LoadShader(0, TextFormat("resources/shaders/glsl%i/uv.fs", GLSL_VERSION));
 	engine.texture_map = LoadTexture("resources/textures/texture_map.png");
+
+	init_projectile_manager();
 
 	SetTargetFPS(60);
 
