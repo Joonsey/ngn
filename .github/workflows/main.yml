@@ -27,10 +27,7 @@ jobs:
       run: |
         ls
         mkdir build
-        gcc src/*.c -o build/ngn \
-        -I./raylib/include -L./raylib/lib \
-        -lraylib -lm -lpthread
-        cp -r resources build/resources
+        gcc $filenames $(find src -type f -name "*.c") -o build/ngn -lraylib -lm -Wall -I./raylib/include -L./raylib/lib
 
     - name: Create archive
       run: |

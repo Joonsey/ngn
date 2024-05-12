@@ -31,7 +31,7 @@ COPY . .
 RUN mkdir $OUTPUT_PATH
 
 # Build the program using MinGW-w64
-RUN i686-w64-mingw32-gcc -o $OUTPUT_PATH/ngn.exe src/*.c -I/raylib/include -L/raylib/lib -lraylib -lm -lgdi32 -lwinmm -lpthread -lws2_32 -static
+RUN i686-w64-mingw32-gcc -o $OUTPUT_PATH/ngn.exe $(find src -type f -name "*.c") -I/raylib/include -L/raylib/lib -lraylib -lm -lgdi32 -lwinmm -lpthread -lws2_32 -static
 RUN ls $OUTPUT_PATH
 
 # Specify the entrypoint to keep the container running
