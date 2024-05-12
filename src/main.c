@@ -19,6 +19,8 @@ int main(int argc, char *argv[]) {
     char *server_ip = DEFAULT_SERVER_IP;
     int server_port = DEFAULT_SERVER_PORT;
 
+	initialize_logging(NLOG_INFO);
+
 	// Check if the --server option is provided
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--server") == 0) {

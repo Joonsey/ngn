@@ -10,10 +10,7 @@ typedef enum
 	MAX_LOG_LEVEL,
 } LOG_LEVEL_ENUM;
 
-#ifndef LOG_LEVEL
-#define LOG_LEVEL LOG_ERR
-#endif
-
+void initialize_logging(LOG_LEVEL_ENUM level);
 void _log(LOG_LEVEL_ENUM level, const char* msg, ...);
 
 #ifndef NLOG_INFO

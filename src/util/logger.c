@@ -4,7 +4,22 @@
 #include <string.h>
 #include <stdarg.h>
 
+
+
+static LOG_LEVEL_ENUM log_level;
+int is_initialized = 0;
+
+void initialize_logging(LOG_LEVEL_ENUM level) {
+	log_level = level;
+	is_initialized = 1;
+}
+
 void _log(LOG_LEVEL_ENUM level, const char* msg, ...) {
+	if (is_initialized == 0) {
+		initialize_logging(NLOG_INFO);
+		NLOG_WARN("logger not initialized! using default... but please initialize logging.");
+	}
+	if (level < log_level) return;
 	const int LOG_CHAR_CAP = 32000;
 	const char *level_map[MAX_LOG_LEVEL] = {
 		"[INFO]",
