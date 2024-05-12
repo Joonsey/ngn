@@ -1,6 +1,8 @@
 #include "network.h"
 #include "packet.h"
 
+#include "../util/logger.h"
+
 const int safety_margin = 10;
 int chunk_size = BUFFER_SIZE - sizeof(Packet) - safety_margin;
 void send_map_data_to_client(ConnectedClient* client, GameData* data) {
@@ -149,24 +151,24 @@ void* run_server(void* arg)
 #ifdef _WIN32
 	WSADATA wsa_data;
 	if (WSAStartup(MAKEWORD(2, 2), &wsa_data) != 0) {
-		fprintf(stderr, "WSAStartup failed with error: %d\n", WSAGetLastError());
+		NLOG_FATAL("WSAStartup failed with error: %d", WSAGetLastError());
 		return 1;
 	}
 #endif
 
     // Create UDP socket
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1) {
-        perror("Socket creation failed");
+        NLOG_ERR("Socket creation failed");
         exit(EXIT_FAILURE);
     }
 
     // Bind socket to the server address
     if (bind(sockfd, (struct sockaddr *)&server_addr, sizeof(server_addr)) == -1) {
-        perror("Binding failed");
+        NLOG_ERR("Binding failed");
         exit(EXIT_FAILURE);
     }
 
-    printf("UDP server started on ip %s and port %d\n", server_ip, server_port);
+    NLOG_INFO("UDP server started on ip %s and port %d", server_ip, server_port);
 
     // Initialize array to store client information
     ConnectedClient clients[MAX_CLIENTS];
@@ -191,7 +193,7 @@ void* run_server(void* arg)
 
         int bytes_received = recv_from(sockfd, receive_buffer, BUFFER_SIZE, 0, (struct sockaddr *)&client_addr, &addr_len);
         if (bytes_received == -1) {
-            perror("recvfrom failed");
+            NLOG_ERR("recvfrom failed");
             exit(EXIT_FAILURE);
         }
 
@@ -215,7 +217,7 @@ void* run_server(void* arg)
 					clients[i].sockfd = sockfd;
 					clients[i].position = (Vector2){0, 0};
 
-					printf("New client connected from %s:%d (yanked spot from: %d)\n", get_ipv4_address(&client_addr), client_addr.sin_port, i);
+					NLOG_INFO("New client connected from %s:%d (yanked spot from: %d)", get_ipv4_address(&client_addr), client_addr.sin_port, i);
 
 					PlayerConnectionInfo info = make_new_player_info(i);
 
@@ -237,7 +239,7 @@ void* run_server(void* arg)
 
                 client_index = num_clients;
                 num_clients++;
-                printf("New client connected from %s:%d\n", get_ipv4_address(&client_addr), client_addr.sin_port);
+                NLOG_INFO("New client connected from %s:%d", get_ipv4_address(&client_addr), client_addr.sin_port);
 
 				PlayerConnectionInfo info = make_new_player_info(client_index);
 
@@ -254,10 +256,10 @@ void* run_server(void* arg)
 				full_response_packet.data = "Full";
 				serialize_packet(&full_response_packet, send_buffer, sizeof(Packet));
 				if (send_to(sockfd, send_buffer, bytes_received, 0, (struct sockaddr *)&client_addr, addr_len) == -1) {
-					perror("error sending");
+					NLOG_ERR("error sending");
 					exit(EXIT_FAILURE);
 				}
-                printf("Max number of clients reached\n");
+                NLOG_WARN("Max number of clients reached");
                 continue;
             }
         }
@@ -271,11 +273,11 @@ void* run_server(void* arg)
 
 			case GREET:
 				send_map_data_to_client(&clients[client_index], &data);
-				printf("sending map data\n");
+				NLOG_INFO("sending map data");
 				break;
 
 			case DISCONNECT:
-				printf("client disconnected %d\n", client_index);
+				NLOG_INFO("client disconnected %d", client_index);
 				args->all_players_connection_info[client_index].connected = false;
 				broadcast_connection_info(clients, args->all_players_connection_info, num_clients);
 				break;

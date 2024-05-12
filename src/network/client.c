@@ -1,6 +1,7 @@
 #include "network.h"
 #include "packet.h"
 
+#include "../util/logger.h"
 
 void build_tiles_and_walls(Engine *engine, Room* rooms, RoomPacketInfo* input_rooms, size_t num_rooms)
 {
@@ -55,14 +56,14 @@ void* run_client(void* arg)
 #ifdef _WIN32
 	WSADATA wsa_data;
 	if (WSAStartup(MAKEWORD(2, 2), &wsa_data) != 0) {
-		fprintf(stderr, "WSAStartup failed with error: %d\n", WSAGetLastError());
+		NLOG_ERR("WSAStartup failed with error: %d", WSAGetLastError());
 		return;
 	}
 #endif
 
     // Create UDP socket
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1) {
-        perror("Socket creation failed");
+        NLOG_ERR("Socket creation failed");
         exit(EXIT_FAILURE);
     }
 
@@ -84,7 +85,7 @@ void* run_client(void* arg)
 
     // Send the packet to the server
     if (send_to(sockfd, send_buffer, send_buffer_size, 0, (struct sockaddr *)&server_addr, addr_len) == -1) {
-        perror("sendto failed");
+        NLOG_ERR("sendto failed");
         exit(EXIT_FAILURE);
     }
 
@@ -92,13 +93,13 @@ void* run_client(void* arg)
 		// Receive response from the server
 		int bytes_received = recv_from(sockfd, buffer, BUFFER_SIZE, 0, (struct sockaddr *)&server_addr, &addr_len);
 		if (bytes_received == -1) {
-			perror("recvfrom failed");
+			NLOG_ERR("recvfrom failed");
 			exit(EXIT_FAILURE);
 		}
 
 		if (args->should_close)
 		{
-			printf("shut down: breaking out of loop\n");
+			NLOG_INFO("shut down: breaking out of loop");
 			break;
 		}
 
@@ -107,9 +108,9 @@ void* run_client(void* arg)
 		deserialize_packet((uint8_t*)&buffer, bytes_received, &response_packet);
 
 		// Print the response packet
-		printf("Received Packet ID: %u\n", response_packet.id);
-		printf("Received Data Length: %u\n", response_packet.data_length);
-		printf("Received Data Type: %u\n", response_packet.type);
+		NLOG_DEBUG("Received Packet ID: %u", response_packet.id);
+		NLOG_DEBUG("Received Data Length: %u", response_packet.data_length);
+		NLOG_DEBUG("Received Data Type: %u", response_packet.type);
 
 		switch(response_packet.type) {
 			case MAP_DATA:
@@ -142,7 +143,7 @@ void* run_client(void* arg)
 					if (fragment_id == total_fragments)
 					{
 						create_collision_maps(data);
-						printf("completed building tiles and walls\n");
+						NLOG_INFO("completed building tiles and walls");
 					}
 
 				}
@@ -162,7 +163,7 @@ void* run_client(void* arg)
 							response_packet.rooms,
 							room_count);
 					create_collision_maps(data);
-					printf("completed building tiles and walls\n");
+					NLOG_INFO("completed building tiles and walls");
 
 				}
 				break;
@@ -177,7 +178,7 @@ void* run_client(void* arg)
 				memcpy(engine->network_client->game_data->connected_players, &response_packet.all_players_connection_info, sizeof(engine->network_client->game_data->connected_players));
 				break;
 			case SERVER_FULL:
-				printf("server is full!\n");
+				NLOG_ERR("server is full!");
 				exit(1);
 				break;
 			default: break;
