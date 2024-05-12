@@ -1,3 +1,4 @@
+#pragma once
 #if defined(_WIN32)
 // To avoid conflicting windows.h symbols with raylib, some flags are defined
 // WARNING: Those flags avoid inclusion of some Win32 headers that could be required

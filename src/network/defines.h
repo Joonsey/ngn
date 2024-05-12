@@ -4,6 +4,7 @@
 
 #ifdef _WIN32
   #include "../winimports.h"
+  #include "stdint.h"
 #else
   #include <arpa/inet.h>
   #include <sys/socket.h>
