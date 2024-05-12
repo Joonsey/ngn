@@ -25,6 +25,9 @@
 #include <stdarg.h>
 #include <pthread.h>
 
+#include "network/defines.h"
+#include "particle.h"
+
 // ROOM INFO
 #define MAX_ROOM_HEIGHT 32
 #define MAX_ROOM_WIDTH  32
@@ -32,11 +35,6 @@
 // SCREEN RESOLUTION
 #define screen_width	800
 #define screen_height	450
-
-// PARTICLE INFO
-#define MAX_PARTICLES 256
-#define MAX_PARTICLE_TYPES 4
-#define GRAVITY_CONST 3
 
 // RENDER DISPLAY
 #define render_width	240
@@ -48,97 +46,11 @@
 #define MAX_ROOM_HEIGHT 32
 #define MAX_ROOM_WIDTH  32
 
-// NETWORKING
-#define MAX_CLIENTS 4
-#define GREET_MAX_LENGTH 6
-#define BUFFER_SIZE 1024
-#define PLAYER_NOT_CONNECTED_SYMBOL -1
-
-
-typedef enum ParticleType
-{
-	PARTICLE_NULL_TYPE,
-
-
-	ASCENDING,
-	DESCENDING,
-	STANDARD,
-	FADING,
-	SHRINKING,
-
-
-	PARTICLE_MAX_TYPE
-} ParticleType;
-
-
-typedef struct Particle
-{
-	Vector3 position;
-	Vector3 velocity;
-	float lifetime;
-	Color color;
-	ParticleType types[MAX_PARTICLE_TYPES];
-	float width;
-	float height;
-
-} Particle;
-
-
 typedef struct Entity {
 	Vector2 position;
 	Texture2D texture;
 	Texture UV_texture;
 } Entity;
-
-typedef struct PlayerConnectionInfo {
-	char name[GREET_MAX_LENGTH];
-	float client_index;
-	bool connected;
-} PlayerConnectionInfo;
-// Define the packet structure
-typedef enum PacketType {
-	SERVER_FULL,
-	GREET,
-	PLAYER_CONNECTION_INFO,
-	ALL_PLAYERS_CONNECTION_INFO,
-	DISCONNECT,
-	MAP_DATA,
-	POSITION_UPDATE,
-	CLIENT_POSITION_RECIEVE
-} PacketType;
-
-typedef struct RoomPacketInfo {
-	Vector2 position;
-	int room_id;
-} RoomPacketInfo;
-
-typedef struct EntityPacketInfo {
-	Vector2 position;
-	uint16_t state;
-} EntityPacketInfo;
-
-typedef struct {
-    uint32_t id;
-	uint16_t type;
-    uint16_t data_length;
-
-	// information regarding fragmented packets
-	bool is_fragmented;
-    uint16_t fragment_id;
-    uint16_t total_fragments;
-
-	union {
-		char* data; // dump
-		PlayerConnectionInfo player_connection_info;
-		PlayerConnectionInfo all_players_connection_info[MAX_CLIENTS];
-		char greet_data[GREET_MAX_LENGTH];
-		Vector2 position;
-		Vector2 player_positions[MAX_CLIENTS];
-		EntityPacketInfo entity_info;
-		EntityPacketInfo entity_infos[MAX_CLIENTS];
-		RoomPacketInfo *rooms;
-	};
-} Packet;
 
 typedef struct {
 	char *server_ip;

@@ -1,7 +1,7 @@
 #include "engine.h"
 #include "particle.h"
 #include "room.h"
-#include "network.h"
+#include "network/network.h"
 #include "projectile.h"
 
 void initiate_room_prefabs(Engine *engine, const char* dir_path)

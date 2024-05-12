@@ -1,5 +1,5 @@
 #include "engine.h"
-#include "network.h"
+#include "network/network.h"
 #include "projectile.h"
 
 #define DEFAULT_SERVER_IP "84.215.24.251"
