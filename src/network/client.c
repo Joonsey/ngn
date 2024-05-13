@@ -22,9 +22,7 @@ void send_player_position(ClientData client_data)
 	position_packet.position = client_data.game_data->player.position;
 	position_packet.data_length = sizeof(Vector2);
 
-    uint8_t pos_send_buffer[BUFFER_SIZE];
-    size_t pos_send_buffer_size = serialize_packet(&position_packet, pos_send_buffer, sizeof(pos_send_buffer));
-	send_to(*client_data.sock_fd, pos_send_buffer, pos_send_buffer_size  , 0, (struct sockaddr *)client_data.server_addr, sizeof(*client_data.server_addr));
+	send_packet(position_packet, *client_data.sock_fd, *(struct sockaddr*)client_data.server_addr);
 }
 
 void send_disconnect(ClientData client_data)
@@ -32,9 +30,8 @@ void send_disconnect(ClientData client_data)
     Packet dc_packet = {0};
 	dc_packet.type = DISCONNECT;
 	dc_packet.id = 1;
-    uint8_t dc_send_buffer[BUFFER_SIZE];
-    size_t dc_send_buffer_size = serialize_packet(&dc_packet, dc_send_buffer, sizeof(dc_send_buffer));
-	send_to(*client_data.sock_fd, dc_send_buffer, dc_send_buffer_size, 0, (struct sockaddr *)client_data.server_addr, sizeof(*client_data.server_addr));
+
+	send_packet(dc_packet, *client_data.sock_fd, *(struct sockaddr*)client_data.server_addr);
 }
 
 void* run_client(void* arg)

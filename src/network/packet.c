@@ -1,4 +1,5 @@
 #include "packet.h"
+#include "network.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -152,3 +153,9 @@ void deserialize_packet(const uint8_t* buffer, size_t buffer_size, Packet* packe
 	}
 }
 
+void send_packet(const Packet packet, int sock_fd, struct sockaddr addr)
+{
+    uint8_t send_buffer[BUFFER_SIZE];
+	size_t buffer_size = serialize_packet(&packet, send_buffer, sizeof(send_buffer));
+	send_to(sock_fd, send_buffer, buffer_size, 0, &addr, sizeof(addr));
+}
