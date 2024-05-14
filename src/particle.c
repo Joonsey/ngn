@@ -1,4 +1,5 @@
 #include "particle.h"
+#include "engine.h"
 
 void render_particle(Engine* engine, GameData* data, const Particle* particle_ptr)
 {

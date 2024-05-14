@@ -1,4 +1,9 @@
 @echo off
 if not exist build mkdir build
-gcc src/*.c -o build\ngn -lraylib -lm -lgdi32 -lwinmm -lpthread -g -lws2_32
+set "filenames="
+for /R %%f in (src\*.c) do (
+  set "filenames=!filenames! %%f "
+)
+
+gcc !filenames! -o build/ngn -lraylib -lm -g -Wall
 exit /b

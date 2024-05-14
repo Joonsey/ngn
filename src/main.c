@@ -1,6 +1,7 @@
 #include "engine.h"
-#include "network.h"
+#include "network/network.h"
 #include "projectile.h"
+#include "util/logger.h"
 
 #define DEFAULT_SERVER_IP "84.215.24.251"
 #define DEFAULT_SERVER_PORT 8888
@@ -11,12 +12,14 @@ ClientData network_client = {0};
 void exit_hook()
 {
 	send_disconnect(network_client);
-	printf("sent disconnect signal\n");
+	NLOG_INFO("sent disconnect signal");
 }
 
 int main(int argc, char *argv[]) {
     char *server_ip = DEFAULT_SERVER_IP;
     int server_port = DEFAULT_SERVER_PORT;
+
+	initialize_logging(NLOG_INFO);
 
 	// Check if the --server option is provided
     for (int i = 1; i < argc; i++) {
@@ -25,7 +28,7 @@ int main(int argc, char *argv[]) {
             if (i + 1 < argc) {
                 server_ip = argv[i + 1];
             } else {
-				printf("No server ip was passed, using default loopback interface\n");
+				NLOG_INFO("No server ip was passed, using default loopback interface");
             }
 			RunServerArguments args;
 			args.server_ip = "0.0.0.0";
@@ -41,12 +44,12 @@ int main(int argc, char *argv[]) {
 			args.server_port = DEFAULT_SERVER_PORT;
 			if (pthread_create(&server_thread, NULL, run_server, (void*)&args) != 0)
 			{
-				printf("error creating server thread\n");
+				NLOG_ERR("error creating server thread");
 				return 1;
 			}
 			while (!args.setup_complete)
 			{
-				printf("waiting for local server to start...\n");
+				NLOG_INFO("waiting for local server to start...");
 				sleep(1);
 			}
         }
@@ -55,7 +58,7 @@ int main(int argc, char *argv[]) {
                 server_ip = argv[i + 1];
                 break;
             } else {
-				printf("No server ip was passed, please provide valid ip address\n");
+				NLOG_ERR("No server ip was passed, please provide valid ip address");
 				exit(1);
             }
 		}
@@ -79,11 +82,11 @@ int main(int argc, char *argv[]) {
 	engine.network_client = &network_client;
 
 	initiate_room_prefabs(&engine, "resources/rooms");
-	printf("connecting to %s at port %d\n", server_ip, server_port);
+	NLOG_INFO("connecting to %s at port %d", server_ip, server_port);
 
 	if (pthread_create(&network_client.thread, NULL, run_client, (void*)&args) != 0)
 	{
-		printf("error creating client thread\n");
+		NLOG_ERR("error creating client thread");
 		return 1;
 	}
 
