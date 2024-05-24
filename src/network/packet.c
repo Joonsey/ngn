@@ -90,6 +90,10 @@ size_t serialize_packet(Packet* packet, uint8_t* buffer, size_t buffer_size) {
 				offset += sizeof(temp);
 			}
 			break;
+		case PROJECTILE_SPAWNED:
+			memcpy(buffer + offset, &packet->projectile, sizeof(packet->projectile));
+			offset += sizeof(packet->projectile);
+			break;
 		default:
 			break;
 	}
@@ -159,6 +163,10 @@ void deserialize_packet(const uint8_t* buffer, size_t buffer_size, Packet* packe
 				memcpy(&packet->all_players_connection_info[i], buffer + offset, sizeof(packet->all_players_connection_info[i]));
 				offset += sizeof(packet->all_players_connection_info[i]);
 			}
+			break;
+		case PROJECTILE_SPAWNED:
+			memcpy(&packet->projectile, buffer + offset, sizeof(packet->projectile));
+			offset += sizeof(packet->projectile);
 			break;
 		default:
 			// Allocate memory for data (consider fixed buffer or alternative approach)

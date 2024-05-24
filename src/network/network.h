@@ -5,6 +5,7 @@ void* run_server(void* arg);
 void* run_client(void* arg);
 
 void send_player_position(ClientData client_data);
+void send_create_projectile(ClientData client_data, ProjectilePacketInfo projectile);
 void send_disconnect(ClientData client_data);
 
 char* get_ipv4_address(struct sockaddr_in* sockaddr);

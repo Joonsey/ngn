@@ -27,7 +27,8 @@ typedef enum PacketType {
 	DISCONNECT,
 	MAP_DATA,
 	ENTITY_UPDATE,
-	CLIENT_ENTITY_UPDATE_RECIEVE
+	CLIENT_ENTITY_UPDATE_RECIEVE,
+	PROJECTILE_SPAWNED
 } PacketType;
 
 typedef struct RoomPacketInfo {
@@ -39,6 +40,12 @@ typedef struct EntityPacketInfo {
 	Vector2 position;
 	uint16_t state;
 } EntityPacketInfo;
+
+typedef struct ProjectilePacketInfo {
+	uint16_t projectile_type;
+	Vector2 position;
+	Vector2 velocity;
+} ProjectilePacketInfo;
 
 typedef struct PlayerConnectionInfo {
 	char name[GREET_MAX_LENGTH];
@@ -64,5 +71,6 @@ typedef struct {
 		EntityPacketInfo entity_info;
 		EntityPacketInfo entity_infos[MAX_CLIENTS];
 		RoomPacketInfo *rooms;
+		ProjectilePacketInfo projectile;
 	};
 } Packet;

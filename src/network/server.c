@@ -74,6 +74,15 @@ void send_connection_response(ConnectedClient* recieving_client, PlayerConnectio
 
 }
 
+void broadcast_packet(ConnectedClient* clients, PlayerConnectionInfo* player_connection_info, int num_clients, Packet packet)
+{
+	for (int i = 0; i < num_clients; i++)
+	{
+		ConnectedClient* recieving_client = &clients[i];
+		send_packet(packet, recieving_client->sockfd, *(struct sockaddr *)&recieving_client->address);
+	}
+}
+
 void broadcast_connection_info(ConnectedClient* clients, PlayerConnectionInfo* player_connection_info, int num_clients)
 {
 	uint8_t send_buffer[BUFFER_SIZE] = {0};
@@ -282,6 +291,10 @@ void* run_server(void* arg)
 				NLOG_INFO("client disconnected %d", client_index);
 				all_players_connection_info[client_index].connected = false;
 				broadcast_connection_info(clients, all_players_connection_info, num_clients);
+				break;
+
+			case PROJECTILE_SPAWNED:
+				broadcast_packet(clients, all_players_connection_info, num_clients, received_packet);
 				break;
 		}
 

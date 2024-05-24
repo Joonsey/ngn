@@ -1,6 +1,7 @@
 #include "network.h"
 #include "packet.h"
 
+#include "../projectile.h"
 #include "../util/logger.h"
 
 void build_tiles_and_walls(Engine *engine, Room* rooms, RoomPacketInfo* input_rooms, size_t num_rooms)
@@ -28,6 +29,16 @@ void send_player_position(ClientData client_data)
 	position_packet.data_length = sizeof(EntityPacketInfo);
 
 	send_packet(position_packet, *client_data.sock_fd, *(struct sockaddr*)client_data.server_addr);
+}
+
+void send_create_projectile(ClientData client_data, ProjectilePacketInfo projectile)
+{
+    Packet packet = {0};
+	packet.type = PROJECTILE_SPAWNED;
+	packet.id = 1;
+
+	packet.projectile = projectile;
+	send_packet(packet, *client_data.sock_fd, *(struct sockaddr*)client_data.server_addr);
 }
 
 void send_disconnect(ClientData client_data)
@@ -178,6 +189,18 @@ void* run_client(void* arg)
 				break;
 			case ALL_PLAYERS_CONNECTION_INFO:
 				memcpy(engine->network_client->game_data->connected_players, &response_packet.all_players_connection_info, sizeof(engine->network_client->game_data->connected_players));
+				break;
+			case PROJECTILE_SPAWNED:
+				{
+
+					ProjectilePacketInfo proj = response_packet.projectile;
+					create_projectile(
+							proj.projectile_type,
+							proj.position,
+							proj.velocity
+							);
+					//NLOG_WARN("got projectile! at: %s %s", proj.position.x, proj.position.y);
+				}
 				break;
 			case SERVER_FULL:
 				NLOG_ERR("server is full!");
