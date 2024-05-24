@@ -99,14 +99,14 @@ void send_positions_response(ConnectedClient* recieving_client, ConnectedClient*
 	uint8_t send_buffer[BUFFER_SIZE] = {0};
 	Packet packet = {0};
 	packet.id = 0;
-	packet.type = CLIENT_POSITION_RECIEVE;
+	packet.type = CLIENT_ENTITY_UPDATE_RECIEVE;
 
 	packet.data_length = sizeof(Vector2) * MAX_CLIENTS;
 
 	for (int i = 0; i < MAX_CLIENTS; i++)
 	{
 		ConnectedClient client = clients[i];
-		memcpy(&packet.player_positions[i], &client.position, sizeof(Vector2));
+		memcpy(&packet.entity_infos[i], &client.entity_info, sizeof(EntityPacketInfo));
 	}
 
 	size_t serialized_size = serialize_packet(&packet, send_buffer, sizeof(send_buffer));
@@ -174,6 +174,8 @@ void* run_server(void* arg)
     ConnectedClient clients[MAX_CLIENTS];
     int num_clients = 0;
 
+	PlayerConnectionInfo all_players_connection_info[MAX_CLIENTS];
+	memset(all_players_connection_info, 0, sizeof(all_players_connection_info));
 	args->setup_complete = true;
     while (1) {
         // Receive data from a client
@@ -210,22 +212,22 @@ void* run_server(void* arg)
 
 		if (client_index == -1) {
 			for (int i = 0; i < num_clients; i++) {
-				if (args->all_players_connection_info[i].connected == false && num_clients >= MAX_CLIENTS)
+				if (all_players_connection_info[i].connected == false && num_clients >= MAX_CLIENTS)
 				{
 					client_index = i;
 					clients[i].address = client_addr;
 					clients[i].sockfd = sockfd;
-					clients[i].position = (Vector2){0, 0};
+					clients[i].entity_info = (EntityPacketInfo){0};
 
 					NLOG_INFO("New client connected from %s:%d (yanked spot from: %d)", get_ipv4_address(&client_addr), client_addr.sin_port, i);
 
 					PlayerConnectionInfo info = make_new_player_info(i);
 
-					args->all_players_connection_info[i] = info;
+					all_players_connection_info[i] = info;
 					memcpy(info.name, received_packet.greet_data, sizeof(char)*GREET_MAX_LENGTH);
 
 					send_connection_response(&clients[client_index], info);
-					broadcast_connection_info(clients, args->all_players_connection_info, num_clients);
+					broadcast_connection_info(clients, all_players_connection_info, num_clients);
 				}
 			}
 		}
@@ -235,7 +237,7 @@ void* run_server(void* arg)
             if (num_clients < MAX_CLIENTS) {
                 clients[num_clients].address = client_addr;
                 clients[num_clients].sockfd = sockfd;
-				clients[num_clients].position = (Vector2){0, 0};
+				clients[num_clients].entity_info = (EntityPacketInfo){0};
 
                 client_index = num_clients;
                 num_clients++;
@@ -243,11 +245,11 @@ void* run_server(void* arg)
 
 				PlayerConnectionInfo info = make_new_player_info(client_index);
 
-				args->all_players_connection_info[client_index] = info;
+				all_players_connection_info[client_index] = info;
 				memcpy(info.name, received_packet.greet_data, sizeof(char)*GREET_MAX_LENGTH);
 
 				send_connection_response(&clients[client_index], info);
-				broadcast_connection_info(clients, args->all_players_connection_info, num_clients);
+				broadcast_connection_info(clients, all_players_connection_info, num_clients);
             } else {
 				Packet full_response_packet = {0};
 				full_response_packet.id = 201;
@@ -266,8 +268,8 @@ void* run_server(void* arg)
 
 		switch (received_packet.type)
 		{
-			case POSITION_UPDATE:
-			 	clients[client_index].position = received_packet.position;
+			case ENTITY_UPDATE:
+			 	clients[client_index].entity_info = received_packet.entity_info;
 				send_positions_response(&clients[client_index], clients);
 				break;
 
@@ -278,8 +280,8 @@ void* run_server(void* arg)
 
 			case DISCONNECT:
 				NLOG_INFO("client disconnected %d", client_index);
-				args->all_players_connection_info[client_index].connected = false;
-				broadcast_connection_info(clients, args->all_players_connection_info, num_clients);
+				all_players_connection_info[client_index].connected = false;
+				broadcast_connection_info(clients, all_players_connection_info, num_clients);
 				break;
 		}
 

@@ -209,12 +209,54 @@ void engine_draw_first_pass(Engine* engine, GameData* data)
 				!player_connection_info.connected)
 			continue;
 
-		Vector2 player_position = data->player_positions[i];
+		Vector2 player_position = data->player_entity_infos[i].position;
 		Entity entity = {0};
 		entity.position = player_position;
+		entity.state = data->player_entity_infos[i].state;
 		entity.texture = data->player.texture;
 		entity.UV_texture = data->player.UV_texture;
 		draw_entity(&entity, engine->uv_shader, data->camera_offset);
+
+		Particle particle;
+		Vector3 velocity = Vector3Zero();
+		Vector3 position = { .x = entity.position.x, .y = entity.position.y, .z = 0 };
+		switch (entity.state)
+		{
+			case MOVE_UP:
+				velocity.z = -GRAVITY_CONST;
+
+				initialize_particle(&particle, 8, 8, 2, GREEN, velocity, position);
+				set_particle_types(&particle, FADING, SHRINKING, PARTICLE_NULL_TYPE);
+				add_particle(particle, data);
+				break;
+
+			case MOVE_DOWN:
+				velocity.z = GRAVITY_CONST;
+
+				initialize_particle(&particle, 8, 8, 2, GREEN, velocity, position);
+				set_particle_types(&particle, FADING, SHRINKING, PARTICLE_NULL_TYPE);
+				add_particle(particle, data);
+				break;
+
+			case MOVE_RIGHT:
+				velocity.x = GRAVITY_CONST;
+
+				initialize_particle(&particle, 8, 8, 2, GREEN, velocity, position);
+				set_particle_types(&particle, FADING, SHRINKING, PARTICLE_NULL_TYPE);
+				add_particle(particle, data);
+				break;
+
+			case MOVE_LEFT:
+				velocity.x = -GRAVITY_CONST;
+
+				initialize_particle(&particle, 8, 8, 2, GREEN, velocity, position);
+				set_particle_types(&particle, FADING, SHRINKING, PARTICLE_NULL_TYPE);
+				add_particle(particle, data);
+				break;
+			default:
+				break;
+		}
+
 	}
 
 	// draw projectiles
@@ -237,7 +279,7 @@ void engine_draw_last_pass(Engine* engine, GameData* data)
 			WHITE);
 
 
-	data->debug_text = (char*)TextFormat("total rooms: %i", get_total_num_rooms(data));
+	data->debug_text = (char*)TextFormat("player state: %i", data->player.state);
 	DrawText(data->debug_text, 10, 10, 20, MAROON);
 
 	EndDrawing();
@@ -271,7 +313,7 @@ void update_player(Engine* engine, GameData* data)
 {
 	// Player movement
 	bool collision = false;
-	//Vector2 start_pos = data->player.position;
+	Vector2 start_pos = data->player.position;
 
 	if (IsKeyDown(KEY_D)) data->player.position.x += 2.0f;
 	collision = check_wall_collision(data->player.position, data);
@@ -289,16 +331,28 @@ void update_player(Engine* engine, GameData* data)
 	collision = check_wall_collision(data->player.position, data);
 	if(collision) data->player.position.y -= 2.0f;
 
-	//quick debug/stress test
-	//if(Vector2Distance(start_pos, data->player.position) != 0)
-	//{
-	//	Particle particle = {0};
-	//	initialize_particle(&particle, 8, 8, 2, BLUE,
-	//			Vector3Zero(),
-	//			(Vector3){data->player.position.x, data->player.position.y, 8});
-	//	set_particle_types(&particle, ASCENDING, FADING, SHRINKING, PARTICLE_NULL_TYPE);
-	//	add_particle(particle, data);
-	//}
+	if (start_pos.x < data->player.position.x)
+		data->player.state = MOVE_RIGHT;
+	if (start_pos.x > data->player.position.x)
+		data->player.state = MOVE_LEFT;
+
+	if (start_pos.y < data->player.position.y)
+		data->player.state = MOVE_UP;
+	if (start_pos.y > data->player.position.y)
+		data->player.state = MOVE_DOWN;
+
+	if(Vector2Distance(start_pos, data->player.position) != 0)
+	{
+		Particle particle = {0};
+		initialize_particle(&particle, 8, 8, 2, BLUE,
+				Vector3Zero(),
+				(Vector3){data->player.position.x, data->player.position.y, 8});
+		set_particle_types(&particle, ASCENDING, FADING, SHRINKING, PARTICLE_NULL_TYPE);
+		add_particle(particle, data);
+	}
+	else {
+		data->player.state = IDLE;
+	}
 
 }
 

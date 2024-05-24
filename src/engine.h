@@ -46,23 +46,33 @@
 #define MAX_ROOM_HEIGHT 32
 #define MAX_ROOM_WIDTH  32
 
+typedef enum EntityState {
+	IDLE,
+	MOVE_LEFT,
+	MOVE_RIGHT,
+	MOVE_DOWN,
+	MOVE_UP,
+	ATTACKING,
+	DEAD
+} EntityState;
+
 typedef struct Entity {
 	Vector2 position;
 	Texture2D texture;
 	Texture UV_texture;
+	EntityState state;
 } Entity;
 
 typedef struct {
 	char *server_ip;
 	int server_port;
 	bool setup_complete;
-	PlayerConnectionInfo all_players_connection_info[MAX_CLIENTS];
 } RunServerArguments;
 
 typedef struct {
     struct sockaddr_in address;
     int sockfd;
-	Vector2 position;
+	EntityPacketInfo entity_info;
 	char* name;
 } ConnectedClient;
 
@@ -102,7 +112,7 @@ typedef struct GameData {
 	Vector2 camera_offset;
 	bool player_inside_room;
 	Room* player_last_visited_room;
-	Vector2 player_positions[MAX_CLIENTS];
+	EntityPacketInfo player_entity_infos[MAX_CLIENTS];
 	PlayerConnectionInfo connected_players[MAX_CLIENTS];
 	int particle_count;
 	Particle particles[MAX_PARTICLES];
@@ -141,6 +151,7 @@ void engine_update(Engine*, GameData*);
 void engine_render(Engine*, GameData*);
 
 Entity make_player(Texture player_texture, Texture UV_texture);
+void handle_player_state(Entity *entity);
 
 
 void player_init(Engine* engine, GameData* data);

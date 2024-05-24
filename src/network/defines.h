@@ -26,8 +26,8 @@ typedef enum PacketType {
 	ALL_PLAYERS_CONNECTION_INFO,
 	DISCONNECT,
 	MAP_DATA,
-	POSITION_UPDATE,
-	CLIENT_POSITION_RECIEVE
+	ENTITY_UPDATE,
+	CLIENT_ENTITY_UPDATE_RECIEVE
 } PacketType;
 
 typedef struct RoomPacketInfo {
@@ -61,8 +61,6 @@ typedef struct {
 		PlayerConnectionInfo player_connection_info;
 		PlayerConnectionInfo all_players_connection_info[MAX_CLIENTS];
 		char greet_data[GREET_MAX_LENGTH];
-		Vector2 position;
-		Vector2 player_positions[MAX_CLIENTS];
 		EntityPacketInfo entity_info;
 		EntityPacketInfo entity_infos[MAX_CLIENTS];
 		RoomPacketInfo *rooms;
