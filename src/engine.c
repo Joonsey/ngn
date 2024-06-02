@@ -409,7 +409,13 @@ void engine_update(Engine* engine, GameData* data)
 	}
 	if (IsKeyPressed(KEY_E))
 	{
-		create_projectile(PROJECTILE_BULLET, data->player.position, (Vector2){1, 0});
+		Vector2 velocity = {1, 0};
+		send_create_projectile(*engine->network_client,
+				(ProjectilePacketInfo){
+					.projectile_type = PROJECTILE_BULLET,
+					.position = data->player.position,
+					.velocity = velocity
+				});
 	}
 
 	update_projectiles(data, engine->frame_time);
