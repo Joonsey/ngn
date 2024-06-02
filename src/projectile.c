@@ -27,13 +27,14 @@ bool basic_on_collide_behaivour(Projectile* projectile, Rectangle* collision_ent
 	return true;
 }
 
-Projectile* create_projectile(ProjectileType type, Vector2 position, Vector2 velocity){
+Projectile* create_projectile(ProjectileType type, Vector2 position, Vector2 direction){
 
 	if (projectile_manager.projectile_count >= MAX_CONCURRENT_PROJECTILES){
 		return NULL;
 	}
 
 	Projectile projectile;
+	Vector2 velocity = direction;
 
 	switch(type)
 	{
@@ -48,6 +49,7 @@ Projectile* create_projectile(ProjectileType type, Vector2 position, Vector2 vel
 			{
 				projectile.on_hit = &basic_on_hit_behaviour;
 				projectile.on_collide = &basic_on_collide_behaivour;
+				velocity = Vector2Scale(velocity, 2);
 			}
 			break;
 	}

@@ -197,7 +197,7 @@ void* run_client(void* arg)
 					create_projectile(
 							proj.projectile_type,
 							proj.position,
-							proj.velocity
+							proj.direction
 							);
 					//NLOG_WARN("got projectile! at: %s %s", proj.position.x, proj.position.y);
 				}

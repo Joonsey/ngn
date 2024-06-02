@@ -44,7 +44,7 @@ typedef struct EntityPacketInfo {
 typedef struct ProjectilePacketInfo {
 	uint16_t projectile_type;
 	Vector2 position;
-	Vector2 velocity;
+	Vector2 direction;
 } ProjectilePacketInfo;
 
 typedef struct PlayerConnectionInfo {

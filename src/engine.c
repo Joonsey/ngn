@@ -4,6 +4,8 @@
 #include "network/network.h"
 #include "projectile.h"
 
+#include "util/logger.h"
+
 void initiate_room_prefabs(Engine *engine, const char* dir_path)
 {
 	FilePathList fpl = LoadDirectoryFilesEx(dir_path, ".room", false);
@@ -14,6 +16,18 @@ void initiate_room_prefabs(Engine *engine, const char* dir_path)
 
 		engine->room_map[room.id] = room;
 	}
+}
+
+Vector2 get_cursor_pos(GameData* data)
+{
+	Vector2 cursor_pos = GetMousePosition();
+
+	// we have to convert from screen width, height
+	// to render width and height
+	cursor_pos.x /= (float)screen_width / render_width;
+	cursor_pos.y /= (float)screen_height / render_height;
+
+	return Vector2Add(cursor_pos, data->camera_offset);
 }
 
 
@@ -354,6 +368,25 @@ void update_player(Engine* engine, GameData* data)
 		data->player.state = IDLE;
 	}
 
+	if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+	{
+		Vector2 cursor_pos = get_cursor_pos(data);
+
+		Vector2 player_screen_pos = data->player.position;
+		Vector2 distance = Vector2Subtract(cursor_pos, player_screen_pos);
+
+		float vector_length = Vector2Length(distance);
+		Vector2 vector_length_vector = Vector2Scale(Vector2One(), vector_length);
+		distance = Vector2Divide(distance, vector_length_vector);
+
+		send_create_projectile(*engine->network_client,
+				(ProjectilePacketInfo){
+					.projectile_type = PROJECTILE_BULLET,
+					.position = data->player.position,
+					.direction = distance
+				});
+	}
+
 }
 
 void engine_update(Engine* engine, GameData* data)
@@ -406,16 +439,6 @@ void engine_update(Engine* engine, GameData* data)
 	{
 		data->debug_text = "toggled wall hitboxes";
 		engine->settings.wall_hitbox = !engine->settings.wall_hitbox;
-	}
-	if (IsKeyPressed(KEY_E))
-	{
-		Vector2 velocity = {1, 0};
-		send_create_projectile(*engine->network_client,
-				(ProjectilePacketInfo){
-					.projectile_type = PROJECTILE_BULLET,
-					.position = data->player.position,
-					.velocity = velocity
-				});
 	}
 
 	update_projectiles(data, engine->frame_time);
