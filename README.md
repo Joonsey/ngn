@@ -4,6 +4,24 @@ Just another rudamentary game engine to experiment with rendering pipelines in O
 
 ## Quick start
 
+### Options
+
+- run with built-in local server
+
+    `build/ngn --local`
+    We can run with a built in server on a seperate thread, this is just quick way of hosting. The game will also share some memory with the server
+
+- join a target server
+
+    `build/ngn --join <ip>`
+    To join a server you need to target a valid ip address
+
+- host a standalone server
+
+    `build/ngn --server <ip | optional>`
+    To host a standalone server without a game client you can run this command.
+    omitting the ip will default to loopback interface, which is likely what you would be running on anyway.
+
 ### Pre-requisite
 
 #### Linux
@@ -24,7 +42,7 @@ to compile and run the engine
 
 #### Windows
 
-Probably doesn't work at all. No idea. If you want to try remember that we're building the engine.c into an object file and building a shared library. This is because we want to hot-reload the symbols during run time for debugging. Might remove this and optionally staticaly link if requested.
+Windows build does not statically link raylib, recommend using x64-mingw-gcc, alternatively you can compile a binary using the docker image in .Dockerfile
 
 ### Debugging
 
@@ -37,4 +55,14 @@ gdb
 ```
 ```gdb
 shell ./build.sh && file build/ngn
+```
+
+### Logging
+
+At the moment the best way to change logging is to change the LOG_LEVEL in the logging initializer in `src/main.c`
+
+```c
+
+	initialize_logging(NLOG_LEVEL); // log level is lowest level logged, inclusive
+
 ```
