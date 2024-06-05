@@ -1,4 +1,7 @@
 #include "projectile.h"
+#include "particle.h"
+
+#include "util/logger.h"
 
 typedef struct ProjectileManager {
 	int projectile_count;
@@ -66,6 +69,28 @@ void render_projectile(Engine* engine, GameData* data, const Projectile* project
 {
     Vector2 proj_render_pos = Vector2Subtract(projectile->position, data->camera_offset);
 	DrawRectangleV(proj_render_pos, (Vector2){8, 8}, MAROON);
+
+
+	if (engine->frame_count % 10 == 0) {
+		Particle trail;
+
+		initialize_particle(&trail, 12, 12, 4, WHITE,
+				(Vector3){
+					.x = -projectile->velocity.x,
+					.y = -projectile->velocity.y,
+					.z = 0
+				},
+				(Vector3){
+					.x = projectile->position.x,
+					.y = projectile->position.y,
+					.z = 0
+				}
+				);
+
+		set_particle_types(&trail, FADING, SHRINKING, PARTICLE_NULL_TYPE);
+		add_particle(trail, data);
+	}
+
 }
 
 void render_projectiles(Engine* engine, GameData* data)
