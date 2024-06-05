@@ -87,7 +87,7 @@ void render_projectile(Engine* engine, GameData* data, const Projectile* project
 				}
 				);
 
-		set_particle_types(&trail, FADING, SHRINKING, PARTICLE_NULL_TYPE);
+		set_particle_types(&trail, FADING, SHRINKING, ACCELERATING_LINEAR, PARTICLE_NULL_TYPE);
 		add_particle(trail, data);
 	}
 

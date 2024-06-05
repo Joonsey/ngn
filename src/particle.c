@@ -82,6 +82,12 @@ void handle_particle_type(Particle* particle, ParticleType* remaining_particle_t
 		case DESCENDING:
 			particle->velocity.z += GRAVITY_CONST;
 			break;
+		case ACCELERATING_LINEAR:
+			particle->velocity = Vector3Scale(particle->velocity, 1.05);
+			break;
+		case ACCELERATING_EXPONENTIAL:
+			particle->velocity = Vector3Multiply(particle->velocity, particle->velocity);
+			break;
 		case FADING:
 			particle->color.a = Clamp(particle->color.a - 5, 0, particle->color.a);
 			break;
