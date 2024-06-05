@@ -135,6 +135,7 @@ typedef struct Engine {
 	Texture2D texture_map;
 	ClientData* network_client;
 	float frame_time;
+	int frame_count;
 } Engine;
 
 typedef struct {

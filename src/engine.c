@@ -123,6 +123,7 @@ void engine_init(Engine* engine, GameData* data)
 {
     // Initialization
 	engine->render_target = LoadRenderTexture(render_width, render_height);
+	engine->frame_count = 0;
 	data->rooms = malloc(sizeof(Room**) * INITIAL_ROOM_CAP);
 	data->room_capacity = INITIAL_ROOM_CAP;
 	data->room_count = 0;
@@ -392,6 +393,7 @@ void update_player(Engine* engine, GameData* data)
 void engine_update(Engine* engine, GameData* data)
 {
 	engine->frame_time = GetFrameTime();
+	engine->frame_count++;
 
 	update_player(engine, data);
 
