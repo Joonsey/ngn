@@ -1,6 +1,8 @@
 #include "particle.h"
 #include "engine.h"
 
+#include "util/logger.h"
+
 void render_particle(Engine* engine, GameData* data, const Particle* particle_ptr)
 {
     Vector2 particle_aggregate_pos = {particle_ptr->position.x, particle_ptr->position.y + particle_ptr->position.z};
@@ -84,8 +86,21 @@ void handle_particle_type(Particle* particle, ParticleType* remaining_particle_t
 			particle->color.a = Clamp(particle->color.a - 5, 0, particle->color.a);
 			break;
 		case SHRINKING:
-			particle->height = Clamp(particle->height - .1f, 0, particle->height);
-			particle->width = Clamp(particle->width - .1f, 0, particle->width);
+			{
+				float old_height = particle->height;
+				float new_height = Clamp(particle->height - .1f, 0, particle->height);
+
+				// offsetting position to center the particle
+				particle->position.y += (old_height - new_height) / 2;
+				particle->height = new_height;
+
+				float old_width = particle->width;
+				float new_width = Clamp(particle->width - .1f, 0, particle->width);
+
+				// offsetting position to center the particle
+				particle->position.x += (old_width - new_width) / 2;
+				particle->width = new_width;
+			}
 			break;
 		default: break;
 	}
