@@ -108,7 +108,7 @@ void send_positions_response(ConnectedClient* recieving_client, ConnectedClient*
 	uint8_t send_buffer[BUFFER_SIZE] = {0};
 	Packet packet = {0};
 	packet.id = 0;
-	packet.type = CLIENT_ENTITY_UPDATE_RECIEVE;
+	packet.type = CLIENT_PLAYER_ENTITY_UPDATE_RECIEVE;
 
 	packet.data_length = sizeof(Vector2) * MAX_CLIENTS;
 
@@ -117,6 +117,19 @@ void send_positions_response(ConnectedClient* recieving_client, ConnectedClient*
 		ConnectedClient client = clients[i];
 		memcpy(&packet.entity_infos[i], &client.entity_info, sizeof(EntityPacketInfo));
 	}
+
+	size_t serialized_size = serialize_packet(&packet, send_buffer, sizeof(send_buffer));
+	send_to(recieving_client->sockfd, send_buffer, serialized_size, 0, (struct sockaddr *)&recieving_client->address, sizeof(recieving_client->address));
+}
+
+void send_enemy_update(ConnectedClient* recieving_client, Entity* enemies)
+{
+	uint8_t send_buffer[BUFFER_SIZE] = {0};
+	Packet packet = {0};
+	packet.id = 0;
+	packet.type = CLIENT_AI_ENTITY_UPDATE_RECIEVE;
+
+	packet.data_length = sizeof(Vector2) * MAX_CLIENTS;
 
 	size_t serialized_size = serialize_packet(&packet, send_buffer, sizeof(send_buffer));
 	send_to(recieving_client->sockfd, send_buffer, serialized_size, 0, (struct sockaddr *)&recieving_client->address, sizeof(recieving_client->address));
@@ -277,7 +290,7 @@ void* run_server(void* arg)
 
 		switch (received_packet.type)
 		{
-			case ENTITY_UPDATE:
+			case ENTITY_PLAYER_UPDATE:
 			 	clients[client_index].entity_info = received_packet.entity_info;
 				send_positions_response(&clients[client_index], clients);
 				break;

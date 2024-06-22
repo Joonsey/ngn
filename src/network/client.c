@@ -19,7 +19,7 @@ void send_player_position(ClientData client_data)
 {
     Packet position_packet = {0};
 	EntityPacketInfo ent = {0};
-	position_packet.type = ENTITY_UPDATE;
+	position_packet.type = ENTITY_PLAYER_UPDATE;
 	position_packet.id = 1;
 
 	ent.position = client_data.game_data->player.position;
@@ -180,7 +180,7 @@ void* run_client(void* arg)
 
 				}
 				break;
-			case CLIENT_ENTITY_UPDATE_RECIEVE:
+			case CLIENT_PLAYER_ENTITY_UPDATE_RECIEVE:
 				memcpy(&engine->network_client->game_data->player_entity_infos, &response_packet.entity_infos, sizeof(response_packet.entity_infos));
 				break;
 			case PLAYER_CONNECTION_INFO:

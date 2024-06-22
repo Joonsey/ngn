@@ -14,6 +14,7 @@
 
 // NETWORKING
 #define MAX_CLIENTS 4
+#define MAX_ENEMIES 20
 #define GREET_MAX_LENGTH 6
 #define BUFFER_SIZE 1024
 #define PLAYER_NOT_CONNECTED_SYMBOL -1
@@ -26,8 +27,10 @@ typedef enum PacketType {
 	ALL_PLAYERS_CONNECTION_INFO,
 	DISCONNECT,
 	MAP_DATA,
-	ENTITY_UPDATE,
-	CLIENT_ENTITY_UPDATE_RECIEVE,
+	ENTITY_PLAYER_UPDATE,
+	ENTITY_AI_UPDATE,
+	CLIENT_PLAYER_ENTITY_UPDATE_RECIEVE,
+	CLIENT_AI_ENTITY_UPDATE_RECIEVE,
 	PROJECTILE_SPAWNED
 } PacketType;
 
@@ -70,6 +73,7 @@ typedef struct {
 		char greet_data[GREET_MAX_LENGTH];
 		EntityPacketInfo entity_info;
 		EntityPacketInfo entity_infos[MAX_CLIENTS];
+		EntityPacketInfo enemy_infos[MAX_ENEMIES];
 		RoomPacketInfo *rooms;
 		ProjectilePacketInfo projectile;
 	};

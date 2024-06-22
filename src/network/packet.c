@@ -52,7 +52,7 @@ size_t serialize_packet(Packet* packet, uint8_t* buffer, size_t buffer_size) {
 			break;
 		case SERVER_FULL:
 			break;
-		case ENTITY_UPDATE:
+		case ENTITY_PLAYER_UPDATE:
 			{
 				EntityPacketInfo info = packet->entity_info;
 				info.state = htons(info.state);
@@ -64,7 +64,19 @@ size_t serialize_packet(Packet* packet, uint8_t* buffer, size_t buffer_size) {
 			memcpy(buffer + offset, packet->data, packet->data_length);
 			offset += buffer_size;
 			break;
-		case CLIENT_ENTITY_UPDATE_RECIEVE:
+		case ENTITY_AI_UPDATE:
+			for (int i = 0; i < MAX_ENEMIES; i++)
+			{
+				// this causes us to not allow packet to be const
+				// TODO: fix this to allow for packet to be const
+				EntityPacketInfo* entity = &packet->enemy_infos[i];
+				entity->state = htons(entity->state);
+
+			}
+			memcpy(buffer + offset, &packet->enemy_infos, sizeof(packet->enemy_infos));
+			offset += sizeof(packet->enemy_infos);
+			break;
+		case CLIENT_PLAYER_ENTITY_UPDATE_RECIEVE:
 			for (int i = 0; i < MAX_CLIENTS; i++)
 			{
 				// this causes us to not allow packet to be const
@@ -138,12 +150,22 @@ void deserialize_packet(const uint8_t* buffer, size_t buffer_size, Packet* packe
 			break;
 		case SERVER_FULL:
 			break;
-		case ENTITY_UPDATE:
+		case ENTITY_PLAYER_UPDATE:
 			memcpy(&packet->entity_info, buffer + offset, sizeof(packet->entity_info));
 			packet->entity_info.state = ntohs(packet->entity_info.state);
 			offset += sizeof(packet->entity_info);
 			break;
-		case CLIENT_ENTITY_UPDATE_RECIEVE:
+		case CLIENT_AI_ENTITY_UPDATE_RECIEVE:
+			memcpy(&packet->enemy_infos, buffer + offset, sizeof(packet->enemy_infos));
+			for (int i = 0; i < MAX_ENEMIES; i++)
+			{
+				EntityPacketInfo* entity = &packet->enemy_infos[i];
+				entity->state = ntohs(entity->state);
+
+			}
+			offset += sizeof(packet->enemy_infos);
+			break;
+		case CLIENT_PLAYER_ENTITY_UPDATE_RECIEVE:
 			memcpy(&packet->entity_infos, buffer + offset, sizeof(packet->entity_infos));
 			for (int i = 0; i < MAX_CLIENTS; i++)
 			{
