@@ -60,6 +60,7 @@ void player_init(Engine* engine, GameData* data)
 	Room players_start_room = data->rooms[0];
 	Vector2 start_pos = center_room_position(players_start_room);
 	data->player.position = start_pos;
+	data->player.speed = .85f;
 	data->player_last_visited_room = &players_start_room;
 	data->player_inside_room = true;
 }
@@ -328,41 +329,42 @@ void update_player(Engine* engine, GameData* data)
 {
 	// Player movement
 	bool collision = false;
-	Vector2 start_pos = data->player.position;
+	Entity* player = &data->player;
+	Vector2 start_pos = player->position;
 
-	if (IsKeyDown(KEY_D)) data->player.position.x += 2.0f;
-	collision = check_wall_collision(data->player.position, data);
-	if(collision) data->player.position.x -= 2.0f;
+	if (IsKeyDown(KEY_D)) player->position.x += player->speed;
+	collision = check_wall_collision(player->position, data);
+	if(collision) player->position.x -= player->speed;
 
-	if (IsKeyDown(KEY_A)) data->player.position.x -= 2.0f;
-	collision = check_wall_collision(data->player.position, data);
-	if(collision) data->player.position.x += 2.0f;
+	if (IsKeyDown(KEY_A)) player->position.x -= player->speed;
+	collision = check_wall_collision(player->position, data);
+	if(collision) player->position.x += player->speed;
 
-	if (IsKeyDown(KEY_W)) data->player.position.y -= 2.0f;
-	collision = check_wall_collision(data->player.position, data);
-	if(collision) data->player.position.y += 2.0f;
+	if (IsKeyDown(KEY_W)) player->position.y -= player->speed;
+	collision = check_wall_collision(player->position, data);
+	if(collision) player->position.y += player->speed;
 
-	if (IsKeyDown(KEY_S)) data->player.position.y += 2.0f;
-	collision = check_wall_collision(data->player.position, data);
-	if(collision) data->player.position.y -= 2.0f;
+	if (IsKeyDown(KEY_S)) player->position.y += player->speed;
+	collision = check_wall_collision(player->position, data);
+	if(collision) player->position.y -= player->speed;
 
-	if (start_pos.x < data->player.position.x)
-		data->player.state = MOVE_RIGHT;
-	if (start_pos.x > data->player.position.x)
-		data->player.state = MOVE_LEFT;
+	if (start_pos.x < player->position.x)
+		player->state = MOVE_RIGHT;
+	if (start_pos.x > player->position.x)
+		player->state = MOVE_LEFT;
 
-	if (start_pos.y < data->player.position.y)
-		data->player.state = MOVE_UP;
-	if (start_pos.y > data->player.position.y)
-		data->player.state = MOVE_DOWN;
+	if (start_pos.y < player->position.y)
+		player->state = MOVE_UP;
+	if (start_pos.y > player->position.y)
+		player->state = MOVE_DOWN;
 
-	if(Vector2Distance(start_pos, data->player.position) != 0)
+	if(Vector2Distance(start_pos, player->position) != 0 && engine->frame_count % 10 == 0)
 	{
 		Particle particle = {0};
-		initialize_particle(&particle, 8, 8, 2, BLUE,
+		initialize_particle(&particle, 8, 8, 2, WHITE,
 				Vector3Zero(),
 				(Vector3){data->player.position.x, data->player.position.y, 8});
-		set_particle_types(&particle, ASCENDING, FADING, SHRINKING, PARTICLE_NULL_TYPE);
+		set_particle_types(&particle, FADING, SHRINKING, PARTICLE_NULL_TYPE);
 		add_particle(particle, data);
 	}
 	else {
@@ -419,7 +421,17 @@ void engine_update(Engine* engine, GameData* data)
 		}
 	}
 
-	if (data->player_inside_room) target_pos = center_room_position(*data->player_last_visited_room);
+	if (data->player_inside_room) {
+		Vector2 center_room_pos = center_room_position(*data->player_last_visited_room);
+		if(data->player_last_visited_room->height * TILE_SIZE < render_height) {
+			target_pos.y = center_room_pos.y;
+		}
+
+		if(data->player_last_visited_room->width * TILE_SIZE < render_width) {
+			target_pos.x = center_room_pos.x;
+		}
+	}
+
 	else target_pos = Vector2Add(target_pos, (Vector2) {
 				data->player.texture.width / 2,
 				data->player.texture.height / 2}
@@ -446,17 +458,6 @@ void engine_update(Engine* engine, GameData* data)
 	update_projectiles(data, engine->frame_time);
 
 	send_player_position(*engine->network_client);
-
-	//put in funny function
-	if (IsKeyPressed(KEY_P))
-	{
-		Particle particle = {0};
-		initialize_particle(&particle, 8, 8, 2, BLUE,
-				Vector3Zero(),
-				(Vector3){data->player.position.x, data->player.position.y, 8});
-		set_particle_types(&particle, ASCENDING, FADING, SHRINKING, PARTICLE_NULL_TYPE);
-		add_particle(particle, data);
-	}
 
 	particles_cleanup(data);
 

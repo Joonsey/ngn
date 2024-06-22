@@ -61,6 +61,7 @@ typedef struct Entity {
 	Texture2D texture;
 	Texture UV_texture;
 	EntityState state;
+	float speed;
 } Entity;
 
 typedef struct {
